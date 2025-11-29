@@ -27,13 +27,13 @@ void updateCircle(Circle *c) {
     // Bounce off left/right edges
     if (c->position.x >= SCREEN_WIDTH - c->radius || c->position.x < c->radius) {
         c->dx = -c->dx;
-        set_shape_isFilled(c->shape, 1-(get_shape_isFilled(c->shape)));
+        toggle_shape_isFilled(c->shape);
     }
     
     // Bounce off top/bottom edges
     if (c->position.y >= SCREEN_HEIGHT - c->radius || c->position.y < c->radius) {
         c->dy = -c->dy;
-        set_shape_isFilled(c->shape, 1-(get_shape_isFilled(c->shape)));
+        toggle_shape_isFilled(c->shape);
     }
     
     // Update the shape's position

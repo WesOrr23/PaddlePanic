@@ -104,6 +104,12 @@ void draw_shape(Shape* shape, OLED_color color);
 void set_shape_isFilled(Shape* shape, uint8_t is_filled);
 
 /**
+ * Toggle the fill state of a shape
+ * @param shape Pointer to shape to modify
+ */
+void toggle_shape_isFilled(Shape* shape);
+
+/**
  * Get the fill state of a shape
  * @param shape Pointer to shape
  * @return 1 if filled, 0 if outline

@@ -332,6 +332,15 @@ void set_shape_isFilled(Shape* shape, uint8_t is_filled) {
 }
 
 /**
+ * Toggle the fill state of a shape
+ */
+void toggle_shape_isFilled(Shape* shape) {
+    if (shape != NULL) {
+        shape->is_filled = (1-shape->is_filled);
+    }
+}
+
+/**
  * Get the fill state of a shape
  */
 uint8_t get_shape_isFilled(Shape* shape) {
