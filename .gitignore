@@ -1,0 +1,15 @@
+# Build
+_build/
+dist/
+
+# MacOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Compiled Binaries
+out/
+
+# CMake
+cmake/
