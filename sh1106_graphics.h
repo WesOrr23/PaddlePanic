@@ -1,11 +1,16 @@
 /*============================================================================
- * sh1106_graphics.h - Modified by Wes Orr (11/28/25)
+ * sh1106_graphics.h - Modified by Wes Orr (11/29/25)
  *============================================================================
- * Graphics library for SH1106-driven 128x64 B&W OLED displays via ATtiny1627
+ * Low-level graphics primitives for SH1106-driven 128x64 B&W OLED displays
+ * via ATtiny1627
  * 
  * Based on Adafruit_GFX and Adafruit_GrayOLED libraries
  * Original Copyright (c) 2013 Adafruit Industries - BSD License
  * Original version by Darby Hewitt (10/27/24)
+ *
+ * This library provides low-level display primitives (pixels, lines, bitmaps).
+ * For shape drawing (circles, rectangles), use shapes.h which provides an
+ * object-oriented interface built on top of these primitives.
  *
  *============================================================================
  * HARDWARE SETUP
@@ -26,9 +31,16 @@
  *     2. initScreen()
  *
  * USAGE
- *     1. Draw to buffer using write... functions
- *     2. Call showScreen() to update physical display
- *     3. Call clearDisplay() to erase buffer (followed by showScreen())
+ *     Low-level approach (pixels, lines, bitmaps):
+ *         writePixel((Point){10, 10}, COLOR_WHITE);
+ *         writeLine((Point){0, 0}, (Point){127, 63}, COLOR_WHITE);
+ *         showScreen();
+ *     
+ *     Object-oriented approach (recommended for shapes):
+ *         #include "shapes.h"
+ *         Shape* circle = create_circle((Point){64, 32}, 15, 1);
+ *         shape_draw(circle, COLOR_WHITE);
+ *         showScreen();
  *
  *==========================================================================*/
 
@@ -115,84 +127,16 @@ void writePixel(Point pos, OLED_color color);
 uint8_t getPixel(Point pos);
 
 /*============================================================================
- * LINE DRAWING
+ * LINE DRAWING PRIMITIVES
  *==========================================================================*/
 /**
  * Draw a line between two points using Bresenham's algorithm
+ * This is a fundamental primitive used by shape drawing functions
  * @param start Starting point coordinates
  * @param end Ending point coordinates
  * @param color Line color
  */
 void writeLine(Point start, Point end, OLED_color color);
-
-/**
- * Draw a fast vertical line (optimized)
- * @param start Starting point (top of line)
- * @param height Line height in pixels
- * @param color Line color
- */
-void drawFastVLine(Point start, int16_t height, OLED_color color);
-
-/**
- * Draw a fast horizontal line (optimized)
- * @param start Starting point (left of line)
- * @param width Line width in pixels
- * @param color Line color
- */
-void drawFastHLine(Point start, int16_t width, OLED_color color);
-
-/*============================================================================
- * RECTANGLE DRAWING
- *==========================================================================*/
-/**
- * Draw a rectangle outline
- * @param topLeft Top-left corner coordinates
- * @param bottomRight Bottom-right corner coordinates
- * @param color Rectangle color
- */
-void writeRect(Point topLeft, Point bottomRight, OLED_color color);
-
-/**
- * Draw a filled rectangle
- * @param topLeft Top-left corner coordinates
- * @param bottomRight Bottom-right corner coordinates
- * @param color Rectangle fill color
- */
-void writeFilledRect(Point topLeft, Point bottomRight, OLED_color color);
-
-/*============================================================================
- * CIRCLE DRAWING
- *==========================================================================*/
-/**
- * Draw a circle outline using midpoint circle algorithm
- * @param center Center coordinates
- * @param radius Circle radius in pixels
- * @param color Circle color
- */
-void writeCircle(Point center, int16_t radius, OLED_color color);
-
-/**
- * Draw a filled circle
- * @param center Center coordinates
- * @param radius Circle radius in pixels
- * @param color Circle fill color
- */
-void writeFilledCircle(Point center, int16_t radius, OLED_color color);
-
-/**
- * Draw a quarter circle (helper for rounded rectangles)
- * @param center Center coordinates
- * @param radius Circle radius in pixels
- * @param cornerName Bitmap: bit 0=NW, 1=NE, 2=SE, 3=SW
- * @param color Circle color
- */
-void writeQuarterCircle(Point center, int16_t radius, uint8_t cornerName, OLED_color color);
-
-/**
- * Helper function for filled circles (internal use)
- */
-void fillCircleHelper(Point center, int16_t radius, uint8_t corners, 
-                      int16_t delta, OLED_color color);
 
 /*============================================================================
  * BITMAP DRAWING

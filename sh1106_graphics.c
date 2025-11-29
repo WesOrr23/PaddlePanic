@@ -1,11 +1,15 @@
 /*============================================================================
- * sh1106_graphics.c - Modified by Wes Orr (11/28/25)
+ * sh1106_graphics.c - Modified by Wes Orr (11/29/25)
  *============================================================================
- * Graphics library for SH1106-driven 128x64 B&W OLED displays via ATtiny1627
+ * Low-level graphics primitives for SH1106-driven 128x64 B&W OLED displays
+ * via ATtiny1627
  * 
  * Based on Adafruit_GFX and Adafruit_GrayOLED libraries
  * Original Copyright (c) 2013 Adafruit Industries - BSD License
  * Original version by Darby Hewitt (10/27/24)
+ * 
+ * This file provides low-level display primitives (pixels, lines, bitmaps).
+ * All shape-specific code (circles, rectangles) is in shapes.c
  *==========================================================================*/
 
 #include <xc.h>
@@ -17,10 +21,6 @@
 /*============================================================================
  * MACROS
  *==========================================================================*/
-#ifndef min
-#define min(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-
 #ifndef _swap_int16_t
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #endif
@@ -193,210 +193,6 @@ void writeLine(Point start, Point end, OLED_color color) {
             error += deltaX;
         }
     }
-}
-
-/**
- * Draw a fast vertical line (optimized for vertical drawing)
- */
-void drawFastVLine(Point start, int16_t height, OLED_color color) {
-    writeLine(start, (Point){start.x, start.y + height - 1}, color);
-}
-
-/**
- * Draw a fast horizontal line (optimized for horizontal drawing)
- */
-void drawFastHLine(Point start, int16_t width, OLED_color color) {
-    writeLine(start, (Point){start.x + width - 1, start.y}, color);
-}
-
-/*============================================================================
- * RECTANGLE DRAWING
- *==========================================================================*/
-/**
- * Draw a rectangle outline
- * @param topLeft Top-left corner coordinates
- * @param bottomRight Bottom-right corner coordinates
- */
-void writeRect(Point topLeft, Point bottomRight, OLED_color color) {
-    writeLine(topLeft, (Point){bottomRight.x, topLeft.y}, color);            // Top edge
-    writeLine((Point){bottomRight.x, topLeft.y}, bottomRight, color);        // Right edge
-    writeLine(bottomRight, (Point){topLeft.x, bottomRight.y}, color);        // Bottom edge
-    writeLine((Point){topLeft.x, bottomRight.y}, topLeft, color);            // Left edge
-}
-
-/**
- * Draw a filled rectangle
- * @param topLeft Top-left corner coordinates
- * @param bottomRight Bottom-right corner coordinates
- */
-void writeFilledRect(Point topLeft, Point bottomRight, OLED_color color) {
-    int16_t x1 = topLeft.x, y1 = topLeft.y;
-    int16_t x2 = bottomRight.x, y2 = bottomRight.y;
-    
-    // Normalize coordinates so x1,y1 is always top-left
-    if (x2 < x1) {
-        _swap_int16_t(x1, x2);
-    }
-    if (y2 < y1) {
-        _swap_int16_t(y1, y2);
-    }
-    
-    // Fill rectangle by drawing vertical lines
-    for (; x1 <= x2; x1++) {
-        writeLine((Point){x1, y1}, (Point){x1, y2}, color);
-    }
-}
-
-/*============================================================================
- * CIRCLE DRAWING
- *==========================================================================*/
-/**
- * Draw a circle outline using midpoint circle algorithm
- * Uses 8-way symmetry to draw entire circle by calculating only 1/8 of it
- * @param center Center coordinates
- * @param radius Circle radius in pixels
- */
-void writeCircle(Point center, int16_t radius, OLED_color color) {
-    int16_t centerX = center.x;
-    int16_t centerY = center.y;
-    
-    // Midpoint circle algorithm variables
-    int16_t decisionParam = 1 - radius;                                      // Decision parameter for next pixel
-    int16_t deltaDecisionX = 1;                                              // Change in decision when x increases
-    int16_t deltaDecisionY = -2 * radius;                                    // Change in decision when y decreases
-    int16_t x = 0;                                                           // Start at leftmost point
-    int16_t y = radius;                                                      // Start at top
-    
-    // Draw initial cardinal points (top, bottom, left, right)
-    writePixel((Point){centerX, centerY + radius}, color);
-    writePixel((Point){centerX, centerY - radius}, color);
-    writePixel((Point){centerX + radius, centerY}, color);
-    writePixel((Point){centerX - radius, centerY}, color);
-    
-    // Draw circle using 8-way symmetry
-    while (x < y) {
-        if (decisionParam >= 0) {                                            // Move diagonally
-            y--;
-            deltaDecisionY += 2;
-            decisionParam += deltaDecisionY;
-        }
-        x++;                                                                 // Always move right
-        deltaDecisionX += 2;
-        decisionParam += deltaDecisionX;
-        
-        // Draw 8 symmetric points for each calculated point
-        writePixel((Point){centerX + x, centerY + y}, color);                // Octant 0
-        writePixel((Point){centerX - x, centerY + y}, color);                // Octant 3
-        writePixel((Point){centerX + x, centerY - y}, color);                // Octant 4
-        writePixel((Point){centerX - x, centerY - y}, color);                // Octant 7
-        writePixel((Point){centerX + y, centerY + x}, color);                // Octant 1
-        writePixel((Point){centerX - y, centerY + x}, color);                // Octant 2
-        writePixel((Point){centerX + y, centerY - x}, color);                // Octant 5
-        writePixel((Point){centerX - y, centerY - x}, color);                // Octant 6
-    }
-}
-
-/**
- * Draw a quarter circle (used for rounded rectangle corners)
- * @param center Center coordinates
- * @param radius Circle radius
- * @param cornerName Bitmap indicating which corner(s): bit 0=NW, 1=NE, 2=SE, 3=SW
- */
-void writeQuarterCircle(Point center, int16_t radius, uint8_t cornerName, OLED_color color) {
-    int16_t centerX = center.x;
-    int16_t centerY = center.y;
-    
-    int16_t decisionParam = 1 - radius;
-    int16_t deltaDecisionX = 1;
-    int16_t deltaDecisionY = -2 * radius;
-    int16_t x = 0;
-    int16_t y = radius;
-    
-    while (x < y) {
-        if (decisionParam >= 0) {
-            y--;
-            deltaDecisionY += 2;
-            decisionParam += deltaDecisionY;
-        }
-        x++;
-        deltaDecisionX += 2;
-        decisionParam += deltaDecisionX;
-        
-        // Draw only the specified corner(s)
-        if (cornerName & 0x4) {                                              // Southeast
-            writePixel((Point){centerX + x, centerY + y}, color);
-            writePixel((Point){centerX + y, centerY + x}, color);
-        }
-        if (cornerName & 0x2) {                                              // Northeast
-            writePixel((Point){centerX + x, centerY - y}, color);
-            writePixel((Point){centerX + y, centerY - x}, color);
-        }
-        if (cornerName & 0x8) {                                              // Southwest
-            writePixel((Point){centerX - y, centerY + x}, color);
-            writePixel((Point){centerX - x, centerY + y}, color);
-        }
-        if (cornerName & 0x1) {                                              // Northwest
-            writePixel((Point){centerX - y, centerY - x}, color);
-            writePixel((Point){centerX - x, centerY - y}, color);
-        }
-    }
-}
-
-/**
- * Helper function for filled circles - draws vertical lines to fill circle
- * Uses symmetry to fill both sides at once
- */
-void fillCircleHelper(Point center, int16_t radius, uint8_t corners, 
-                      int16_t delta, OLED_color color) {
-    int16_t centerX = center.x;
-    int16_t centerY = center.y;
-    
-    int16_t decisionParam = 1 - radius;
-    int16_t deltaDecisionX = 1;
-    int16_t deltaDecisionY = -2 * radius;
-    int16_t x = 0;
-    int16_t y = radius;
-    int16_t prevX = x;
-    int16_t prevY = y;
-    
-    delta++;                                                                 // Adjust for proper fill
-    
-    while (x < y) {
-        if (decisionParam >= 0) {
-            y--;
-            deltaDecisionY += 2;
-            decisionParam += deltaDecisionY;
-        }
-        x++;
-        deltaDecisionX += 2;
-        decisionParam += deltaDecisionX;
-        
-        // Draw vertical lines to fill, avoiding double-drawing
-        if (x < (y + 1)) {
-            if (corners & 1)
-                drawFastVLine((Point){centerX + x, centerY - y}, 2 * y + delta, color);
-            if (corners & 2)
-                drawFastVLine((Point){centerX - x, centerY - y}, 2 * y + delta, color);
-        }
-        if (y != prevY) {
-            if (corners & 1)
-                drawFastVLine((Point){centerX + prevY, centerY - prevX}, 2 * prevX + delta, color);
-            if (corners & 2)
-                drawFastVLine((Point){centerX - prevY, centerY - prevX}, 2 * prevX + delta, color);
-            prevY = y;
-        }
-        prevX = x;
-    }
-}
-
-/**
- * Draw a filled circle
- * @param center Center coordinates
- * @param radius Circle radius in pixels
- */
-void writeFilledCircle(Point center, int16_t radius, OLED_color color) {
-    drawFastVLine((Point){center.x, center.y - radius}, 2 * radius + 1, color);  // Draw center vertical line
-    fillCircleHelper(center, radius, 3, 0, color);                           // Fill left and right halves
 }
 
 /*============================================================================
