@@ -25,6 +25,14 @@
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #endif
 
+#ifndef min
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
+#ifndef max
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+
 /*============================================================================
  * DISPLAY BUFFER
  *==========================================================================*/
@@ -150,15 +158,94 @@ uint8_t getPixel(Point pos) {
 }
 
 /*============================================================================
- * LINE DRAWING
+ * LINE DRAWING WITH CLIPPING
  *==========================================================================*/
+
 /**
- * Draw a line using Bresenham's algorithm
- * Efficiently draws lines by only using integer arithmetic (no division/multiplication in loop)
+ * Cohen-Sutherland line clipping outcodes
+ */
+#define OUTCODE_INSIDE 0  // 0000
+#define OUTCODE_LEFT   1  // 0001
+#define OUTCODE_RIGHT  2  // 0010
+#define OUTCODE_BOTTOM 4  // 0100
+#define OUTCODE_TOP    8  // 1000
+
+/**
+ * Compute outcode for point relative to screen bounds
+ */
+static uint8_t compute_outcode(int16_t x, int16_t y) {
+    uint8_t code = OUTCODE_INSIDE;
+    
+    if (x < 0) code |= OUTCODE_LEFT;
+    else if (x >= WIDTH) code |= OUTCODE_RIGHT;
+    
+    if (y < 0) code |= OUTCODE_TOP;
+    else if (y >= HEIGHT) code |= OUTCODE_BOTTOM;
+    
+    return code;
+}
+
+/**
+ * Clip line to screen bounds using Cohen-Sutherland algorithm
+ * Returns 1 if line is visible (even partially), 0 if completely outside
+ */
+static uint8_t clip_line(int16_t* x0, int16_t* y0, int16_t* x1, int16_t* y1) {
+    uint8_t outcode0 = compute_outcode(*x0, *y0);
+    uint8_t outcode1 = compute_outcode(*x1, *y1);
+    
+    while (1) {
+        if (!(outcode0 | outcode1)) {
+            // Both points inside - accept
+            return 1;
+        } else if (outcode0 & outcode1) {
+            // Both points share an outside region - reject
+            return 0;
+        } else {
+            // Line crosses boundary - clip it
+            int16_t x, y;
+            uint8_t outcode_out = outcode0 ? outcode0 : outcode1;
+            
+            // Find intersection point
+            if (outcode_out & OUTCODE_BOTTOM) {
+                x = *x0 + (*x1 - *x0) * (HEIGHT - 1 - *y0) / (*y1 - *y0);
+                y = HEIGHT - 1;
+            } else if (outcode_out & OUTCODE_TOP) {
+                x = *x0 + (*x1 - *x0) * (0 - *y0) / (*y1 - *y0);
+                y = 0;
+            } else if (outcode_out & OUTCODE_RIGHT) {
+                y = *y0 + (*y1 - *y0) * (WIDTH - 1 - *x0) / (*x1 - *x0);
+                x = WIDTH - 1;
+            } else { // OUTCODE_LEFT
+                y = *y0 + (*y1 - *y0) * (0 - *x0) / (*x1 - *x0);
+                x = 0;
+            }
+            
+            // Replace outside point with intersection point
+            if (outcode_out == outcode0) {
+                *x0 = x;
+                *y0 = y;
+                outcode0 = compute_outcode(*x0, *y0);
+            } else {
+                *x1 = x;
+                *y1 = y;
+                outcode1 = compute_outcode(*x1, *y1);
+            }
+        }
+    }
+}
+
+/**
+ * Draw a line using Bresenham's algorithm with clipping
+ * Lines that extend off-screen are clipped to screen boundaries
  */
 void writeLine(Point start, Point end, OLED_color color) {
     int16_t x0 = start.x, y0 = start.y;
     int16_t x1 = end.x, y1 = end.y;
+    
+    // Clip line to screen bounds
+    if (!clip_line(&x0, &y0, &x1, &y1)) {
+        return;  // Line is completely outside screen
+    }
     
     // Check if line is steep (more vertical than horizontal)
     int16_t isSteep = abs(y1 - y0) > abs(x1 - x0);

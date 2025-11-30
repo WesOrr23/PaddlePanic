@@ -10,10 +10,10 @@
  * built on top of the primitives in sh1106_graphics.h (pixels, lines).
  *
  * USAGE:
- *     Shape* circle = create_circle((Point){64, 32}, 15, 1);
- *     shape_draw(circle, COLOR_WHITE);
- *     shape_set_filled(circle, 0);
- *     shape_draw(circle, COLOR_WHITE);
+ *     Shape* circle = create_circle((Point){64, 32}, 15, 1, COLOR_WHITE);
+ *     draw(circle);
+ *     set_shape_filled(circle, 0);
+ *     draw(circle);
  *     shape_destroy(circle);
  *==========================================================================*/
 
@@ -32,23 +32,34 @@ typedef enum {
 } ShapeType;
 
 /*============================================================================
+ * RECTANGLE ANCHOR ENUMERATION
+ *==========================================================================*/
+typedef enum {
+    ANCHOR_TOP_LEFT,
+    ANCHOR_BOTTOM_LEFT,
+    ANCHOR_CENTER
+} RectangleAnchor;
+
+/*============================================================================
  * SHAPE DATA STRUCTURES
  *==========================================================================*/
 
 /**
  * Circle-specific data
+ * Origin (center) is stored in parent Shape
  */
 typedef struct {
-    Point center;
     int16_t radius;
 } CircleData;
 
 /**
  * Rectangle-specific data
+ * Origin location depends on anchor setting, stored in parent Shape
  */
 typedef struct {
-    Point top_left;
-    Point bottom_right;
+    RectangleAnchor anchor;
+    int16_t width;
+    int16_t height;
 } RectangleData;
 
 /**
@@ -56,10 +67,12 @@ typedef struct {
  * All shapes contain this structure for uniform handling
  */
 typedef struct Shape {
-    void (*draw)(struct Shape* self, OLED_color color);    // Polymorphic draw function
-    void* shape_data;                                       // Pointer to specific shape data
-    ShapeType type;                                         // Shape type identifier
-    uint8_t is_filled;                                      // Fill state
+    Point origin;                                   // Position of shape (meaning depends on type/anchor)
+    void (*draw_impl)(struct Shape* self);          // Polymorphic draw implementation
+    void* shape_data;                               // Pointer to specific shape data
+    ShapeType type;                                 // Shape type identifier
+    uint8_t is_filled;                              // Fill state
+    OLED_color color;                               // Color to draw shape
 } Shape;
 
 /*============================================================================
@@ -68,21 +81,26 @@ typedef struct Shape {
 
 /**
  * Create a new circle shape
- * @param center Center coordinates
+ * @param origin Center coordinates
  * @param radius Circle radius in pixels
  * @param is_filled 1 for filled circle, 0 for outline
+ * @param color Color to draw the circle
  * @return Pointer to new Shape, or NULL if allocation fails
  */
-Shape* create_circle(Point center, int16_t radius, uint8_t is_filled);
+Shape* create_circle(Point origin, int16_t radius, uint8_t is_filled, OLED_color color);
 
 /**
  * Create a new rectangle shape
- * @param top_left Top-left corner coordinates
- * @param bottom_right Bottom-right corner coordinates
+ * @param origin Origin point (meaning depends on anchor)
+ * @param width Rectangle width in pixels
+ * @param height Rectangle height in pixels
+ * @param anchor Where origin is located (TOP_LEFT, BOTTOM_LEFT, CENTER)
  * @param is_filled 1 for filled rectangle, 0 for outline
+ * @param color Color to draw the rectangle
  * @return Pointer to new Shape, or NULL if allocation fails
  */
-Shape* create_rectangle(Point top_left, Point bottom_right, uint8_t is_filled);
+Shape* create_rectangle(Point origin, int16_t width, int16_t height, 
+                       RectangleAnchor anchor, uint8_t is_filled, OLED_color color);
 
 /*============================================================================
  * SHAPE OPERATIONS (Polymorphic Interface)
@@ -91,30 +109,44 @@ Shape* create_rectangle(Point top_left, Point bottom_right, uint8_t is_filled);
 /**
  * Draw a shape to the display buffer
  * Calls the appropriate draw function based on shape type
+ * Uses the shape's stored color
  * @param shape Pointer to shape to draw
- * @param color COLOR_WHITE, COLOR_BLACK, or COLOR_INVERT
  */
-void draw_shape(Shape* shape, OLED_color color);
+void draw(Shape* shape);
 
 /**
  * Set the fill state of a shape
  * @param shape Pointer to shape to modify
  * @param is_filled 1 for filled, 0 for outline
  */
-void set_shape_isFilled(Shape* shape, uint8_t is_filled);
+void set_shape_filled(Shape* shape, uint8_t is_filled);
 
 /**
  * Toggle the fill state of a shape
  * @param shape Pointer to shape to modify
  */
-void toggle_shape_isFilled(Shape* shape);
+void toggle_shape_filled(Shape* shape);
 
 /**
  * Get the fill state of a shape
  * @param shape Pointer to shape
  * @return 1 if filled, 0 if outline
  */
-uint8_t get_shape_isFilled(Shape* shape);
+uint8_t get_shape_filled(Shape* shape);
+
+/**
+ * Set the color of a shape
+ * @param shape Pointer to shape to modify
+ * @param color New color
+ */
+void set_shape_color(Shape* shape, OLED_color color);
+
+/**
+ * Get the color of a shape
+ * @param shape Pointer to shape
+ * @return Current color
+ */
+OLED_color get_shape_color(Shape* shape);
 
 /**
  * Get the type of a shape
@@ -135,11 +167,20 @@ void shape_destroy(Shape* shape);
  *==========================================================================*/
 
 /**
- * Move a circle to a new position
- * @param shape Pointer to circle shape
- * @param new_center New center coordinates
+ * Set shape origin (works for all shape types)
+ * For circles: origin is center
+ * For rectangles: origin meaning depends on anchor
+ * @param shape Pointer to shape
+ * @param new_origin New origin position
  */
-void set_circle_center(Shape* shape, Point new_center);
+void set_shape_position(Shape* shape, Point new_origin);
+
+/**
+ * Get shape origin (works for all shape types)
+ * @param shape Pointer to shape
+ * @return Current origin
+ */
+Point get_shape_position(Shape* shape);
 
 /**
  * Change a circle's radius
@@ -149,11 +190,25 @@ void set_circle_center(Shape* shape, Point new_center);
 void set_circle_radius(Shape* shape, int16_t new_radius);
 
 /**
- * Move a rectangle to a new position
- * @param shape Pointer to rectangle shape
- * @param new_top_left New top-left corner coordinates
- * @param new_bottom_right New bottom-right corner coordinates
+ * Get a circle's radius
+ * @param shape Pointer to circle shape
+ * @return Current radius, or 0 if not a circle
  */
-void rectangle_set_position(Shape* shape, Point new_top_left, Point new_bottom_right);
+int16_t get_circle_radius(Shape* shape);
+
+/**
+ * Change a rectangle's dimensions
+ * @param shape Pointer to rectangle shape
+ * @param new_width New width in pixels
+ * @param new_height New height in pixels
+ */
+void set_rectangle_dimensions(Shape* shape, int16_t new_width, int16_t new_height);
+
+/**
+ * Change a rectangle's anchor point
+ * @param shape Pointer to rectangle shape
+ * @param new_anchor New anchor setting
+ */
+void set_rectangle_anchor(Shape* shape, RectangleAnchor new_anchor);
 
 #endif // SHAPES_H

@@ -1,79 +1,81 @@
 /*
- * main.c
+ * main.c - Updated for new physics/shapes system
  *
  * Created: 10/27/2024 9:03:11 PM
  * Author: Wes Orr
  */
 #include <xc.h>
-#include <stddef.h>  // For NULL definition
+#include <stddef.h>
 #include "sh1106_graphics.h"
 #include "shapes.h"
+#include "physics.h"
 
-#define SCREEN_WIDTH  127
+#define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 63
 
-typedef struct {
-    uint8_t radius;
-    Point position;                                                          // Center position of circle
-    int8_t dx;                                                               // X velocity
-    int8_t dy;                                                               // Y velocity
-    Shape* shape;                                                            // Pointer to the shape object
-} Circle;
+/*============================================================================
+ * COLLISION CALLBACKS
+ *==========================================================================*/
 
-void updateCircle(Circle *c) {
-    c->position.x += c->dx;
-    c->position.y += c->dy;
-    
-    // Bounce off left/right edges
-    if (c->position.x >= SCREEN_WIDTH - c->radius || c->position.x < c->radius) {
-        c->dx = -c->dx;
-        toggle_shape_isFilled(c->shape);
-    }
-    
-    // Bounce off top/bottom edges
-    if (c->position.y >= SCREEN_HEIGHT - c->radius || c->position.y < c->radius) {
-        c->dy = -c->dy;
-        toggle_shape_isFilled(c->shape);
-    }
-    
-    // Update the shape's position
-    set_circle_center(c->shape, c->position);
+void ball_bounce(PhysicsObject* self, PhysicsObject* other) {
+    // Bounce and toggle fill
+    collision_bounce(self, other);
+    toggle_shape_filled(self->visual);
 }
+
+void wall_hit(PhysicsObject* self, PhysicsObject* other) {
+    // Do nothing - walls are static
+    collision_none(self, other);
+}
+
+/*============================================================================
+ * MAIN PROGRAM
+ *==========================================================================*/
 
 int main(void) {
     initSPI();
     initScreen();
     
-    // Define circle data
-    Circle circles[] = {
-        {10, {10, 10}, 1, 2, NULL},
-        {5,  {50, 30}, 2, 3, NULL},
-        {2,  {100, 50}, 1, 5, NULL}
-    };
+    // Create boundary walls
+    PhysicsObject walls[4];
+    Shape* wall_top = create_rectangle((Point){0, 0}, 128, 3, ANCHOR_TOP_LEFT, 1, COLOR_WHITE);
+    Shape* wall_bottom = create_rectangle((Point){0, HEIGHT-1}, 128, 3, ANCHOR_BOTTOM_LEFT, 1, COLOR_WHITE);
+    Shape* wall_left = create_rectangle((Point){0, 0}, 3, 64, ANCHOR_TOP_LEFT, 1, COLOR_WHITE);
+    Shape* wall_right = create_rectangle((Point){WIDTH-4, 0}, 3, 64, ANCHOR_TOP_LEFT, 1, COLOR_WHITE);
     
-    // Create shape objects for each circle
-    for (int i = 0; i < 3; i++) {
-        circles[i].shape = create_circle(circles[i].position, circles[i].radius, 1);  // 1 = filled
-    }
+    init_physics(&walls[0], (Point){0, 0}, (Vector2D){0, 0}, wall_top, wall_hit);
+    init_physics(&walls[1], (Point){0, HEIGHT-1}, (Vector2D){0, 0}, wall_bottom, wall_hit);
+    init_physics(&walls[2], (Point){0, 0}, (Vector2D){0, 0}, wall_left, wall_hit);
+    init_physics(&walls[3], (Point){WIDTH-4, 0}, (Vector2D){0, 0}, wall_right, wall_hit);
     
+    // Create ball
+    PhysicsObject ball;
+    Shape* ball_shape = create_circle((Point){64, 32}, 5, 1, COLOR_WHITE);
+    init_physics(&ball, (Point){64, 32}, (Vector2D){3, 2}, ball_shape, ball_bounce);
+    
+    // Main game loop
     while (1) {
-        clearDisplay();  // Clear entire buffer first
+        // Update physics
+        update_physics(&ball);
         
-        // Update positions FIRST
-        for (int i = 0; i < 3; i++) {
-            updateCircle(&circles[i]);
+        // Check collisions with all walls
+        for (int i = 0; i < 4; i++) {
+            check_physics_collision_objects(&ball, &walls[i]);
         }
         
-        // Then draw all circles
-        for (int i = 0; i < 3; i++) {
-            draw_shape(circles[i].shape, COLOR_WHITE);
+        // Draw everything
+        clearDisplay();
+        
+        // Draw walls
+        for (int i = 0; i < 4; i++) {
+            draw(walls[i].visual);
         }
         
-        showScreen();  // Update display once
+        // Draw ball
+        draw(ball.visual);
+        
+        showScreen();
     }
     
-    // Clean up (never reached in this infinite loop, but good practice)
-    for (int i = 0; i < 3; i++) {
-        shape_destroy(circles[i].shape);
-    }
+    return 0;
 }
