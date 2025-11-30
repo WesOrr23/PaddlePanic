@@ -23,7 +23,7 @@
  * CIRCLE DRAWING PRIMITIVES
  *==========================================================================*/
 
-static void writeCircle(Point center, int16_t radius, OLED_color color) {
+static void drawCircle(Point center, int16_t radius, OLED_color color) {
     int16_t centerX = center.x;
     int16_t centerY = center.y;
     
@@ -33,10 +33,10 @@ static void writeCircle(Point center, int16_t radius, OLED_color color) {
     int16_t x = 0;
     int16_t y = radius;
     
-    writePixel((Point){centerX, centerY + radius}, color);
-    writePixel((Point){centerX, centerY - radius}, color);
-    writePixel((Point){centerX + radius, centerY}, color);
-    writePixel((Point){centerX - radius, centerY}, color);
+    drawPixel((Point){centerX, centerY + radius}, color);
+    drawPixel((Point){centerX, centerY - radius}, color);
+    drawPixel((Point){centerX + radius, centerY}, color);
+    drawPixel((Point){centerX - radius, centerY}, color);
     
     while (x < y) {
         if (decisionParam >= 0) {
@@ -48,18 +48,18 @@ static void writeCircle(Point center, int16_t radius, OLED_color color) {
         deltaDecisionX += 2;
         decisionParam += deltaDecisionX;
         
-        writePixel((Point){centerX + x, centerY + y}, color);
-        writePixel((Point){centerX - x, centerY + y}, color);
-        writePixel((Point){centerX + x, centerY - y}, color);
-        writePixel((Point){centerX - x, centerY - y}, color);
-        writePixel((Point){centerX + y, centerY + x}, color);
-        writePixel((Point){centerX - y, centerY + x}, color);
-        writePixel((Point){centerX + y, centerY - x}, color);
-        writePixel((Point){centerX - y, centerY - x}, color);
+        drawPixel((Point){centerX + x, centerY + y}, color);
+        drawPixel((Point){centerX - x, centerY + y}, color);
+        drawPixel((Point){centerX + x, centerY - y}, color);
+        drawPixel((Point){centerX - x, centerY - y}, color);
+        drawPixel((Point){centerX + y, centerY + x}, color);
+        drawPixel((Point){centerX - y, centerY + x}, color);
+        drawPixel((Point){centerX + y, centerY - x}, color);
+        drawPixel((Point){centerX - y, centerY - x}, color);
     }
 }
 
-static void writeFilledCircle(Point center, int16_t radius, OLED_color color) {
+static void drawFilledCircle(Point center, int16_t radius, OLED_color color) {
     int16_t centerX = center.x;
     int16_t centerY = center.y;
     
@@ -67,7 +67,7 @@ static void writeFilledCircle(Point center, int16_t radius, OLED_color color) {
     int16_t bottom = centerY + radius;
     if (top < 0) top = 0;
     if (bottom >= HEIGHT) bottom = HEIGHT - 1;
-    writeLine((Point){centerX, top}, (Point){centerX, bottom}, color);
+    drawLine((Point){centerX, top}, (Point){centerX, bottom}, color);
     
     int16_t decisionParam = 1 - radius;
     int16_t deltaDecisionX = 1;
@@ -95,9 +95,9 @@ static void writeFilledCircle(Point center, int16_t radius, OLED_color color) {
         
         if (x < (y + 1)) {
             if (centerX + x < WIDTH)
-                writeLine((Point){centerX + x, lineTop}, (Point){centerX + x, lineBottom}, color);
+                drawLine((Point){centerX + x, lineTop}, (Point){centerX + x, lineBottom}, color);
             if (centerX - x >= 0)
-                writeLine((Point){centerX - x, lineTop}, (Point){centerX - x, lineBottom}, color);
+                drawLine((Point){centerX - x, lineTop}, (Point){centerX - x, lineBottom}, color);
         }
         if (y != prevY) {
             int16_t prevLineTop = centerY - prevX;
@@ -106,9 +106,9 @@ static void writeFilledCircle(Point center, int16_t radius, OLED_color color) {
             if (prevLineBottom >= HEIGHT) prevLineBottom = HEIGHT - 1;
             
             if (centerX + prevY < WIDTH)
-                writeLine((Point){centerX + prevY, prevLineTop}, (Point){centerX + prevY, prevLineBottom}, color);
+                drawLine((Point){centerX + prevY, prevLineTop}, (Point){centerX + prevY, prevLineBottom}, color);
             if (centerX - prevY >= 0)
-                writeLine((Point){centerX - prevY, prevLineTop}, (Point){centerX - prevY, prevLineBottom}, color);
+                drawLine((Point){centerX - prevY, prevLineTop}, (Point){centerX - prevY, prevLineBottom}, color);
             prevY = y;
         }
         prevX = x;
@@ -158,16 +158,16 @@ static void calculate_rect_corners(Point origin, int16_t width, int16_t height,
     br->y = (temp_br_y < 0) ? 0 : ((temp_br_y >= HEIGHT) ? HEIGHT - 1 : temp_br_y);
 }
 
-static void writeRect(Point origin, int16_t width, int16_t height, 
+static void drawRect(Point origin, int16_t width, int16_t height, 
                      RectangleAnchor anchor, OLED_color color) {
     Point tl, br;
     calculate_rect_corners(origin, width, height, anchor, &tl, &br);
     
     // Draw outline - br is exclusive, so subtract 1 for actual edge
-    writeLine(tl, (Point){br.x - 1, tl.y}, color);           // Top edge
-    writeLine((Point){br.x - 1, tl.y}, (Point){br.x - 1, br.y - 1}, color);  // Right edge
-    writeLine((Point){br.x - 1, br.y - 1}, (Point){tl.x, br.y - 1}, color);  // Bottom edge
-    writeLine((Point){tl.x, br.y - 1}, tl, color);           // Left edge
+    drawLine(tl, (Point){br.x - 1, tl.y}, color);           // Top edge
+    drawLine((Point){br.x - 1, tl.y}, (Point){br.x - 1, br.y - 1}, color);  // Right edge
+    drawLine((Point){br.x - 1, br.y - 1}, (Point){tl.x, br.y - 1}, color);  // Bottom edge
+    drawLine((Point){tl.x, br.y - 1}, tl, color);           // Left edge
 }
 
 static void writeFilledRect(Point origin, int16_t width, int16_t height,
@@ -183,7 +183,7 @@ static void writeFilledRect(Point origin, int16_t width, int16_t height,
     
     // Fill rectangle - br is exclusive, so use < instead of <=
     for (; x1 < x2; x1++) {
-        writeLine((Point){x1, y1}, (Point){x1, y2 - 1}, color);
+        drawLine((Point){x1, y1}, (Point){x1, y2 - 1}, color);
     }
 }
 
@@ -197,9 +197,9 @@ static void draw_circle(Shape* self) {
     CircleData* data = (CircleData*)self->shape_data;
     
     if (self->is_filled) {
-        writeFilledCircle(self->origin, data->radius, self->color);
+        drawFilledCircle(self->origin, data->radius, self->color);
     } else {
-        writeCircle(self->origin, data->radius, self->color);
+        drawCircle(self->origin, data->radius, self->color);
     }
 }
 
@@ -211,7 +211,7 @@ static void draw_rectangle(Shape* self) {
     if (self->is_filled) {
         writeFilledRect(self->origin, data->width, data->height, data->anchor, self->color);
     } else {
-        writeRect(self->origin, data->width, data->height, data->anchor, self->color);
+        drawRect(self->origin, data->width, data->height, data->anchor, self->color);
     }
 }
 
@@ -306,7 +306,7 @@ ShapeType get_shape_type(Shape* shape) {
     return (shape != NULL) ? shape->type : SHAPE_CIRCLE;
 }
 
-void shape_destroy(Shape* shape) {
+void destroy_shape(Shape* shape) {
     if (shape != NULL) {
         if (shape->shape_data != NULL) {
             free(shape->shape_data);

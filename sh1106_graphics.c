@@ -127,7 +127,7 @@ void initScreen() {
  * @param pos Pixel coordinates (0-127, 0-63)
  * @param color COLOR_WHITE, COLOR_BLACK, or COLOR_INVERT
  */
-void writePixel(Point pos, OLED_color color) {
+void drawPixel(Point pos, OLED_color color) {
     if ((pos.x < WIDTH) && (pos.y < HEIGHT)) {
         // Calculate buffer position: column + (page * width)
         // Each page is 8 pixels tall, bit position determined by (y & 7)
@@ -238,7 +238,7 @@ static uint8_t clip_line(int16_t* x0, int16_t* y0, int16_t* x1, int16_t* y1) {
  * Draw a line using Bresenham's algorithm with clipping
  * Lines that extend off-screen are clipped to screen boundaries
  */
-void writeLine(Point start, Point end, OLED_color color) {
+void drawLine(Point start, Point end, OLED_color color) {
     int16_t x0 = start.x, y0 = start.y;
     int16_t x1 = end.x, y1 = end.y;
     
@@ -270,9 +270,9 @@ void writeLine(Point start, Point end, OLED_color color) {
     // Draw line pixel by pixel
     for (; x0 <= x1; x0++) {
         if (isSteep) {
-            writePixel((Point){y0, x0}, color);                              // Swap back for steep lines
+            drawPixel((Point){y0, x0}, color);                              // Swap back for steep lines
         } else {
-            writePixel((Point){x0, y0}, color);
+            drawPixel((Point){x0, y0}, color);
         }
         error -= deltaY;
         if (error < 0) {                                                     // Time to step in y direction
@@ -293,7 +293,7 @@ void writeLine(Point start, Point end, OLED_color color) {
  * @param width Bitmap width in pixels
  * @param height Bitmap height in pixels
  */
-void writeBitmap(Point pos, uint8_t *bitmap, int16_t width, int16_t height, 
+void drawBitmap(Point pos, uint8_t *bitmap, int16_t width, int16_t height, 
                  OLED_color color) {
     int16_t byteWidth = (width + 7) / 8;                                     // Bytes per row (rounded up)
     uint8_t currentByte = 0;
@@ -306,7 +306,7 @@ void writeBitmap(Point pos, uint8_t *bitmap, int16_t width, int16_t height,
                 currentByte = bitmap[row * byteWidth + col / 8];
             }
             if (currentByte & 0x80) {                                        // Check MSB (current pixel)
-                writePixel((Point){pos.x + col, pos.y}, color);
+                drawPixel((Point){pos.x + col, pos.y}, color);
             }
         }
     }
@@ -341,7 +341,7 @@ void invertDisplay(uint8_t invert) {
  * SH1106 requires Read-Modify-Write mode due to 132-column controller
  * driving 128-column display (2-pixel offset)
  */
-void showScreen() {
+void refreshDisplay() {
     for (uint8_t page = 0; page < 8; page++) {
         sendCommand(0xB0 | page);                                            // Set page address (0-7)
         

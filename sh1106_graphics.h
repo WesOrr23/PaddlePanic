@@ -117,7 +117,7 @@ void sendData(uint8_t dataByte);
  * @param pos Pixel coordinates (0-127, 0-63)
  * @param color COLOR_WHITE, COLOR_BLACK, or COLOR_INVERT
  */
-void writePixel(Point pos, OLED_color color);
+void drawPixel(Point pos, OLED_color color);
 
 /**
  * Get pixel state from display buffer
@@ -136,7 +136,7 @@ uint8_t getPixel(Point pos);
  * @param end Ending point coordinates
  * @param color Line color
  */
-void writeLine(Point start, Point end, OLED_color color);
+void drawLine(Point start, Point end, OLED_color color);
 
 /*============================================================================
  * BITMAP DRAWING
@@ -150,7 +150,7 @@ void writeLine(Point start, Point end, OLED_color color);
  * @param height Bitmap height in pixels
  * @param color Color to draw set pixels (1 bits)
  */
-void writeBitmap(Point pos, uint8_t *bitmap, int16_t width, int16_t height, 
+void drawBitmap(Point pos, uint8_t *bitmap, int16_t width, int16_t height, 
                  OLED_color color);
 
 /*============================================================================
@@ -172,6 +172,6 @@ void invertDisplay(uint8_t invert);
  * Update the physical display with contents of buffer
  * Call this after drawing operations to make changes visible
  */
-void showScreen(void);
+void refreshDisplay(void);
 
 #endif // SH1106_GRAPHICS_H

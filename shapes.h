@@ -160,7 +160,7 @@ ShapeType get_shape_type(Shape* shape);
  * Always call this when done with a shape to prevent memory leaks
  * @param shape Pointer to shape to destroy
  */
-void shape_destroy(Shape* shape);
+void destroy_shape(Shape* shape);
 
 /*============================================================================
  * SHAPE MODIFICATION FUNCTIONS

@@ -92,7 +92,7 @@ struct PhysicsObject {
  * @param shape Visual shape (must be pre-created)
  * @param callback Function to call on collision (can be NULL for no response)
  */
-void init_physics(PhysicsObject* obj, Point pos, Vector2D vel, 
+void init_physics(PhysicsObject* obj, Point position, Vector2D velocity, 
                   Shape* shape, CollisionCallback callback);
 
 /**
@@ -100,7 +100,7 @@ void init_physics(PhysicsObject* obj, Point pos, Vector2D vel,
  * The PhysicsObject itself is not freed (assumed static allocation)
  * @param obj Pointer to physics object to destroy
  */
-void destroy_physics(PhysicsObject* obj);
+void destroy(PhysicsObject* obj);
 
 /*============================================================================
  * PHYSICS SIMULATION
@@ -121,7 +121,7 @@ void move(PhysicsObject* obj, Vector2D delta);
  * Convenience function that calls move() with the object's velocity
  * @param obj Pointer to physics object to update
  */
-void update_physics(PhysicsObject* obj);
+void update(PhysicsObject* obj);
 
 /*============================================================================
  * COLLISION DETECTION
@@ -136,7 +136,7 @@ void update_physics(PhysicsObject* obj);
  * @param obj2 Second physics object
  * @return 1 if collision detected, 0 otherwise
  */
-uint8_t check_physics_collision_objects(PhysicsObject* obj1, PhysicsObject* obj2);
+uint8_t check_collision(PhysicsObject* objA, PhysicsObject* objB);
 
 /*============================================================================
  * PROPERTY ACCESSORS
@@ -148,14 +148,14 @@ uint8_t check_physics_collision_objects(PhysicsObject* obj1, PhysicsObject* obj2
  * @param obj Pointer to physics object
  * @param new_pos New position
  */
-void set_physics_position(PhysicsObject* obj, Point new_pos);
+void set_physics_position(PhysicsObject* obj, Point new_position);
 
 /**
  * Set the velocity of a physics object
  * @param obj Pointer to physics object
  * @param new_vel New velocity
  */
-void set_physics_velocity(PhysicsObject* obj, Vector2D new_vel);
+void set_physics_velocity(PhysicsObject* obj, Vector2D new_velocity);
 
 /**
  * Get the current position of a physics object

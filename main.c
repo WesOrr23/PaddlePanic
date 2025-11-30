@@ -56,11 +56,11 @@ int main(void) {
     // Main game loop
     while (1) {
         // Update physics
-        update_physics(&ball);
+        update(&ball);
         
         // Check collisions with all walls
         for (int i = 0; i < 4; i++) {
-            check_physics_collision_objects(&ball, &walls[i]);
+            check_collision(&ball, &walls[i]);
         }
         
         // Draw everything
@@ -74,7 +74,7 @@ int main(void) {
         // Draw ball
         draw(ball.visual);
         
-        showScreen();
+        refreshDisplay();
     }
     
     return 0;
