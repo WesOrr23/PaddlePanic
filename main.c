@@ -43,15 +43,15 @@ int main(void) {
     Shape* wall_left = create_rectangle((Point){0, 0}, 3, 64, ANCHOR_TOP_LEFT, 1, COLOR_WHITE);
     Shape* wall_right = create_rectangle((Point){WIDTH-4, 0}, 3, 64, ANCHOR_TOP_LEFT, 1, COLOR_WHITE);
     
-    init_physics(&walls[0], (Point){0, 0}, (Vector2D){0, 0}, wall_top, wall_hit);
-    init_physics(&walls[1], (Point){0, HEIGHT-1}, (Vector2D){0, 0}, wall_bottom, wall_hit);
-    init_physics(&walls[2], (Point){0, 0}, (Vector2D){0, 0}, wall_left, wall_hit);
-    init_physics(&walls[3], (Point){WIDTH-4, 0}, (Vector2D){0, 0}, wall_right, wall_hit);
+    init_physics(&walls[0], (Vector2D){0, 0}, wall_top, wall_hit);
+    init_physics(&walls[1], (Vector2D){0, 0}, wall_bottom, wall_hit);
+    init_physics(&walls[2], (Vector2D){0, 0}, wall_left, wall_hit);
+    init_physics(&walls[3], (Vector2D){0, 0}, wall_right, wall_hit);
     
     // Create ball
     PhysicsObject ball;
     Shape* ball_shape = create_circle((Point){64, 32}, 5, 1, COLOR_WHITE);
-    init_physics(&ball, (Point){64, 32}, (Vector2D){3, 2}, ball_shape, ball_bounce);
+    init_physics(&ball, (Vector2D){6, 3}, ball_shape, ball_bounce);
     
     // Main game loop
     while (1) {

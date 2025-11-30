@@ -87,12 +87,11 @@ struct PhysicsObject {
 /**
  * Initialize a physics object
  * @param obj Pointer to physics object to initialize
- * @param pos Starting position
  * @param vel Initial velocity
- * @param shape Visual shape (must be pre-created)
+ * @param shape Visual shape (must be pre-created, provides intial position)
  * @param callback Function to call on collision (can be NULL for no response)
  */
-void init_physics(PhysicsObject* obj, Point position, Vector2D velocity, 
+void init_physics(PhysicsObject* obj, Vector2D velocity, 
                   Shape* shape, CollisionCallback callback);
 
 /**

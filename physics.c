@@ -22,22 +22,17 @@
  * PHYSICS OBJECT INITIALIZATION
  *==========================================================================*/
 
-void init_physics(PhysicsObject* obj, Point position, Vector2D velocity, 
+void init_physics(PhysicsObject* obj, Vector2D velocity, 
                   Shape* shape, CollisionCallback callback) {
-    if (obj == NULL) return;
+    if (obj == NULL || shape == NULL) return;
     
-    obj->position = position;
+    obj->position = shape->origin;
     obj->velocity = velocity;
     obj->acceleration.x = 0;
     obj->acceleration.y = 0;
     obj->visual = shape;
     obj->on_collision = callback;
     obj->collision_enabled = 1;
-    
-    // Sync visual shape position with physics position
-    if (shape != NULL) {
-        shape->origin = position;  // Direct access - much simpler!
-    }
 }
 
 void destroy(PhysicsObject* obj) {
