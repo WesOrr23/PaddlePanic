@@ -22,11 +22,27 @@
  * PHYSICS OBJECT INITIALIZATION
  *==========================================================================*/
 
-void init_physics(PhysicsObject* obj, Vector2D velocity, 
-                  Shape* shape, CollisionCallback callback) {
-    if (obj == NULL || shape == NULL) return;
-    
-    obj->position = shape->origin;
+void init_physics(PhysicsObject* obj, Point position, Vector2D velocity,
+                  ShapeType type, ShapeParams params,
+                  CollisionCallback callback) {
+    if (obj == NULL) return;
+
+    Shape* shape = NULL;
+
+    // Create shape based on type
+    if (type == SHAPE_CIRCLE) {
+        shape = create_circle(position, params.circle.radius,
+                            params.circle.is_filled, params.circle.color);
+    } else if (type == SHAPE_RECTANGLE) {
+        shape = create_rectangle(position, params.rect.width, params.rect.height,
+                               params.rect.anchor, params.rect.is_filled,
+                               params.rect.color);
+    }
+
+    if (shape == NULL) return;  // Handle allocation failure
+
+    // Initialize physics object
+    obj->position = position;
     obj->velocity = velocity;
     obj->acceleration.x = 0;
     obj->acceleration.y = 0;

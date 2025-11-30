@@ -20,21 +20,22 @@
  *     void bounce(PhysicsObject* self, PhysicsObject* other) {
  *         collision_bounce(self, other);
  *     }
- *     
- *     // Create physics object
+ *
+ *     // Create physics object (physics now creates shape internally)
  *     PhysicsObject ball;
- *     Shape* ball_shape = create_circle((Point){64, 32}, 5, 1, COLOR_WHITE);
- *     init_physics(&ball, (Point){64, 32}, (Vector2D){2, 3}, ball_shape, bounce);
- *     
+ *     init_physics(&ball, (Point){64, 32}, (Vector2D){2, 3},
+ *                  SHAPE_CIRCLE, (ShapeParams){.circle = {5, 1, COLOR_WHITE}},
+ *                  bounce);
+ *
  *     // In game loop
- *     update_physics(&ball);  // Applies velocity
- *     check_physics_collision_objects(&ball, &paddle);
- *     
+ *     update(&ball);  // Applies velocity
+ *     check_collision(&ball, &paddle);
+ *
  *     // Draw (call shape draw directly)
  *     clearDisplay();
  *     draw(ball.visual);
  *     draw(paddle.visual);
- *     showScreen();
+ *     refreshDisplay();
  *==========================================================================*/
 
 #ifndef PHYSICS_H
@@ -55,6 +56,37 @@ typedef struct {
     int8_t x;
     int8_t y;
 } Vector2D;
+
+/**
+ * Circle shape parameters for physics object creation
+ */
+typedef struct {
+    int16_t radius;
+    uint8_t is_filled;
+    OLED_color color;
+} CircleParams;
+
+/**
+ * Rectangle shape parameters for physics object creation
+ */
+typedef struct {
+    int16_t width;
+    int16_t height;
+    RectangleAnchor anchor;
+    uint8_t is_filled;
+    OLED_color color;
+} RectangleParams;
+
+/**
+ * Union holding either circle or rectangle parameters
+ * Use designated initializers to specify which type:
+ *   (ShapeParams){.circle = {5, 1, COLOR_WHITE}}
+ *   (ShapeParams){.rect = {10, 20, ANCHOR_CENTER, 1, COLOR_WHITE}}
+ */
+typedef union {
+    CircleParams circle;
+    RectangleParams rect;
+} ShapeParams;
 
 // Forward declaration for callback type
 typedef struct PhysicsObject PhysicsObject;
@@ -85,14 +117,23 @@ struct PhysicsObject {
  *==========================================================================*/
 
 /**
- * Initialize a physics object
+ * Initialize a physics object with internal shape creation
+ * Physics object now owns and creates its visual shape
  * @param obj Pointer to physics object to initialize
- * @param vel Initial velocity
- * @param shape Visual shape (must be pre-created, provides intial position)
+ * @param position Initial position (screen coordinates)
+ * @param velocity Initial velocity
+ * @param type Shape type (SHAPE_CIRCLE or SHAPE_RECTANGLE)
+ * @param params Shape parameters (use designated initializers for union)
  * @param callback Function to call on collision (can be NULL for no response)
+ *
+ * Example usage:
+ *   init_physics(&ball, (Point){64, 32}, (Vector2D){2, 3},
+ *                SHAPE_CIRCLE, (ShapeParams){.circle = {5, 1, COLOR_WHITE}},
+ *                ball_bounce);
  */
-void init_physics(PhysicsObject* obj, Vector2D velocity, 
-                  Shape* shape, CollisionCallback callback);
+void init_physics(PhysicsObject* obj, Point position, Vector2D velocity,
+                  ShapeType type, ShapeParams params,
+                  CollisionCallback callback);
 
 /**
  * Destroy a physics object (frees internal shape)
