@@ -65,11 +65,15 @@
 
 /**
  * Game state enumeration
- * Tracks ball state for state machine
+ * Tracks game state for state machine
  */
 typedef enum {
+    GAME_STATE_TITLE,          // Title screen, waiting for start
     GAME_STATE_BALL_AT_REST,   // Ball is stationary at center
-    GAME_STATE_BALL_MOVING     // Ball is moving and bouncing
+    GAME_STATE_BALL_MOVING,    // Ball is moving and bouncing
+    GAME_STATE_PAUSED,         // Game paused, showing pause menu
+    GAME_STATE_COUNTDOWN,      // Countdown before resuming (3, 2, 1...)
+    GAME_STATE_GAME_OVER       // Game over, showing final score
 } GameState;
 
 /**
@@ -105,6 +109,7 @@ typedef struct {
 
     // Score tracking
     uint16_t score;
+    uint16_t final_score;  // Saved score for game over screen
 
     // Collision cooldown per paddle (prevents paddle trapping)
     uint8_t paddle_collision_cooldown[4];  // One cooldown per paddle
@@ -112,6 +117,10 @@ typedef struct {
     // Current paddle velocities (for smooth acceleration)
     int8_t paddle_current_velocity_x;  // Current X velocity (horizontal paddles)
     int8_t paddle_current_velocity_y;  // Current Y velocity (vertical paddles)
+
+    // Pause state
+    Vector2D paused_ball_velocity;     // Ball velocity saved when paused
+    uint8_t countdown_timer;           // Countdown timer (in frames, 60 fps ≈ 1 sec)
 
     // Button edge detection
     uint8_t button1_prev_state;

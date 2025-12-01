@@ -7,7 +7,6 @@
 #include <xc.h>
 #include "sh1106_graphics.h"
 #include "game_controller.h"
-#include "text.h"
 
 int main(void) {
     // Initialize display (includes SPI setup)
@@ -25,10 +24,6 @@ int main(void) {
         // Render
         clearDisplay();
         draw_game_controller(&game);
-
-        // Draw score in top-left corner
-        drawNumber(5, 5, game.score, COLOR_WHITE);
-
         refreshDisplay();
     }
 

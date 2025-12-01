@@ -31,7 +31,19 @@
  * @param y Y position (top-left of first digit)
  * @param number Number to display (0-65535)
  * @param color Color to draw (COLOR_WHITE, COLOR_BLACK, or COLOR_INVERT)
+ * @param scale Scale factor (1=3x5, 2=6x10, 3=9x15, etc.)
  */
-void drawNumber(uint8_t x, uint8_t y, uint16_t number, OLED_color color);
+void drawNumber(uint8_t x, uint8_t y, uint16_t number, OLED_color color, uint8_t scale);
+
+/**
+ * Draw text at specified position
+ * Supports uppercase/lowercase letters (A-Z), digits (0-9), and spaces
+ * @param x X position (top-left of first character)
+ * @param y Y position (top-left of first character)
+ * @param text Null-terminated string to display
+ * @param color Color to draw (COLOR_WHITE, COLOR_BLACK, or COLOR_INVERT)
+ * @param scale Scale factor (1=3x5, 2=6x10, 3=9x15, etc.)
+ */
+void drawText(uint8_t x, uint8_t y, const char* text, OLED_color color, uint8_t scale);
 
 #endif // TEXT_H

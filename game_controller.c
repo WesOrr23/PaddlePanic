@@ -7,6 +7,7 @@
 #include "game_controller.h"
 #include "shapes.h"
 #include "sh1106_graphics.h"
+#include "text.h"
 #include <stddef.h>
 
 /*============================================================================
@@ -221,13 +222,16 @@ void init_game_controller(GameController* controller) {
                  paddle_hit);
 
     // Initialize game state
-    controller->state = GAME_STATE_BALL_AT_REST;
+    controller->state = GAME_STATE_TITLE;
     controller->score = 0;
+    controller->final_score = 0;
     for (int i = 0; i < 4; i++) {
         controller->paddle_collision_cooldown[i] = 0;
     }
     controller->paddle_current_velocity_x = 0;
     controller->paddle_current_velocity_y = 0;
+    controller->paused_ball_velocity = (Vector2D){0, 0};
+    controller->countdown_timer = 0;
     controller->button1_prev_state = 0;
 
     // Create ball (starts at rest in center)
@@ -318,6 +322,20 @@ void update_game_controller(GameController* ctrl) {
 
     // State machine
     switch (ctrl->state) {
+        case GAME_STATE_TITLE:
+            // Title screen - wait for button press to start game
+            if (button1_pressed) {
+                // Reset game state
+                ctrl->score = 0;
+                set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
+                set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
+                for (int i = 0; i < 4; i++) {
+                    ctrl->paddle_collision_cooldown[i] = 0;
+                }
+                ctrl->state = GAME_STATE_BALL_AT_REST;
+            }
+            break;
+
         case GAME_STATE_BALL_AT_REST:
             if (button1_pressed) {
                 // Generate random direction using ADC as seed
@@ -330,13 +348,10 @@ void update_game_controller(GameController* ctrl) {
 
         case GAME_STATE_BALL_MOVING:
             if (button1_pressed) {
-                // Reset ball to center, stop movement
-                set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
+                // Pause game - save ball velocity and stop movement
+                ctrl->paused_ball_velocity = get_physics_velocity(&ctrl->ball);
                 set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
-                for (int i = 0; i < 4; i++) {
-                    ctrl->paddle_collision_cooldown[i] = 0;  // Reset all cooldowns
-                }
-                ctrl->state = GAME_STATE_BALL_AT_REST;
+                ctrl->state = GAME_STATE_PAUSED;
             } else {
                 // Update ball physics (applies velocity to position)
                 update(&ctrl->ball);
@@ -361,17 +376,42 @@ void update_game_controller(GameController* ctrl) {
                         for (volatile uint32_t delay = 0; delay < 50000; delay++) {}
                         invertDisplay(0);
 
-                        // Reset ball to center
-                        set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
+                        // Save final score and stop ball
+                        ctrl->final_score = ctrl->score;
                         set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
-                        for (int j = 0; j < 4; j++) {
-                            ctrl->paddle_collision_cooldown[j] = 0;  // Reset all cooldowns
-                        }
-                        ctrl->state = GAME_STATE_BALL_AT_REST;
-                        ctrl->score = 0;
+                        ctrl->state = GAME_STATE_GAME_OVER;
                         break;
                     }
                 }
+            }
+            break;
+
+        case GAME_STATE_PAUSED:
+            // Game is paused - wait for button press to resume
+            if (button1_pressed) {
+                // Start countdown (3 seconds at ~12 fps = 36 frames)
+                ctrl->countdown_timer = 36;
+                ctrl->state = GAME_STATE_COUNTDOWN;
+            }
+            break;
+
+        case GAME_STATE_COUNTDOWN:
+            // Decrement countdown timer
+            if (ctrl->countdown_timer > 0) {
+                ctrl->countdown_timer--;
+            }
+
+            // When countdown reaches 0, restore ball velocity and resume
+            if (ctrl->countdown_timer == 0) {
+                set_physics_velocity(&ctrl->ball, ctrl->paused_ball_velocity);
+                ctrl->state = GAME_STATE_BALL_MOVING;
+            }
+            break;
+
+        case GAME_STATE_GAME_OVER:
+            // Game over - wait for button press to return to title
+            if (button1_pressed) {
+                ctrl->state = GAME_STATE_TITLE;
             }
             break;
     }
@@ -394,6 +434,36 @@ void update_game_controller(GameController* ctrl) {
 void draw_game_controller(GameController* ctrl) {
     if (ctrl == NULL) return;
 
+    // Title screen
+    if (ctrl->state == GAME_STATE_TITLE) {
+        // Draw "PADDLE PANIC" centered at top
+        // Scale 2: each char is 6 pixels wide + 2 spacing = 8 pixels per char
+        // "PADDLE PANIC" = 12 chars = 96 pixels, center = (128-96)/2 = 16
+        drawText(16, 15, "PADDLE PANIC", COLOR_WHITE, 2);
+
+        // "PRESS START" at bottom
+        // Scale 1: each char is 3 pixels wide + 1 spacing = 4 pixels per char
+        // "PRESS START" = 11 chars = 44 pixels, center = (128-44)/2 = 42
+        drawText(42, 50, "PRESS START", COLOR_WHITE, 1);
+        return;
+    }
+
+    // Game over screen
+    if (ctrl->state == GAME_STATE_GAME_OVER) {
+        // Draw "GAME OVER" centered
+        // Scale 2: "GAME OVER" = 9 chars = 72 pixels, center = (128-72)/2 = 28
+        drawText(28, 15, "GAME OVER", COLOR_WHITE, 2);
+
+        // Draw "SCORE" label
+        // Scale 1: "SCORE" = 5 chars = 20 pixels, center = (128-20)/2 = 54
+        drawText(54, 35, "SCORE", COLOR_WHITE, 1);
+
+        // Draw final score centered below
+        drawNumber(SCREEN_WIDTH/2 - 10, 45, ctrl->final_score, COLOR_WHITE, 2);
+        return;
+    }
+
+    // Draw game objects (for all gameplay states)
     // Draw walls
     for (int i = 0; i < 4; i++) {
         draw(ctrl->walls[i].visual);
@@ -407,5 +477,52 @@ void draw_game_controller(GameController* ctrl) {
     // Draw ball
     draw(ctrl->ball.visual);
 
-    // Future: Draw score, etc.
+    // Draw pause menu (if paused)
+    if (ctrl->state == GAME_STATE_PAUSED) {
+        // Draw semi-transparent overlay (centered rectangle)
+        Shape* pause_bg = create_rectangle(
+            (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2},
+            60, 30,
+            ANCHOR_CENTER,
+            1,  // Filled
+            COLOR_BLACK
+        );
+        draw(pause_bg);
+        destroy_shape(pause_bg);
+
+        // Draw border around pause menu
+        Shape* pause_border = create_rectangle(
+            (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2},
+            60, 30,
+            ANCHOR_CENTER,
+            0,  // Not filled (outline only)
+            COLOR_WHITE
+        );
+        draw(pause_border);
+        destroy_shape(pause_border);
+
+        // Draw score number (scale 3 for larger display)
+        // Center on screen - approximate offset for 1-3 digits
+        drawNumber(SCREEN_WIDTH/2 - 10, SCREEN_HEIGHT/2 - 7, ctrl->score, COLOR_WHITE, 3);
+    }
+
+    // Draw countdown (if counting down)
+    if (ctrl->state == GAME_STATE_COUNTDOWN) {
+        // Calculate which number to show (3, 2, 1)
+        // countdown_timer: 36-25 = 3, 24-13 = 2, 12-1 = 1
+        uint8_t countdown_num;
+        if (ctrl->countdown_timer > 24) {
+            countdown_num = 3;
+        } else if (ctrl->countdown_timer > 12) {
+            countdown_num = 2;
+        } else {
+            countdown_num = 1;
+        }
+
+        // Draw large countdown number (scale 6 = 18x30 pixels)
+        // Center on screen (adjust for text size)
+        uint8_t countdown_x = SCREEN_WIDTH/2 - 9;   // 18 pixels wide / 2
+        uint8_t countdown_y = SCREEN_HEIGHT/2 - 15; // 30 pixels tall / 2
+        drawNumber(countdown_x, countdown_y, countdown_num, COLOR_WHITE, 6);
+    }
 }
