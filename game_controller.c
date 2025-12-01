@@ -112,6 +112,25 @@ static int8_t map_to_velocity(int16_t normalized_value) {
 }
 
 /**
+ * Smoothly accelerate current velocity toward target velocity
+ * @param current Current velocity
+ * @param target Target velocity
+ * @return New current velocity (moved toward target by PADDLE_ACCELERATION)
+ */
+static int8_t smooth_accelerate(int8_t current, int8_t target) {
+    if (current < target) {
+        // Accelerate toward target
+        current += PADDLE_ACCELERATION;
+        if (current > target) current = target;  // Don't overshoot
+    } else if (current > target) {
+        // Decelerate toward target
+        current -= PADDLE_ACCELERATION;
+        if (current < target) current = target;  // Don't overshoot
+    }
+    return current;
+}
+
+/**
  * Clamp paddle position to bounds
  * @param paddle Pointer to paddle physics object
  * @param min_coord Minimum allowed coordinate
@@ -207,6 +226,8 @@ void init_game_controller(GameController* controller) {
     for (int i = 0; i < 4; i++) {
         controller->paddle_collision_cooldown[i] = 0;
     }
+    controller->paddle_current_velocity_x = 0;
+    controller->paddle_current_velocity_y = 0;
     controller->button1_prev_state = 0;
 
     // Create ball (starts at rest in center)
@@ -252,28 +273,32 @@ void update_game_controller(GameController* ctrl) {
     int16_t norm_x = -normalize_adc(raw_x);  // Inverted: -2048 to +2047
     int16_t norm_y = -normalize_adc(raw_y);  // Inverted: -2048 to +2047
 
-    // Map to velocities
-    int8_t velocity_x = map_to_velocity(norm_x);  // ±MAX_PADDLE_SPEED pixels/frame
-    int8_t velocity_y = map_to_velocity(norm_y);  // ±MAX_PADDLE_SPEED pixels/frame
+    // Map to target velocities
+    int8_t target_velocity_x = map_to_velocity(norm_x);  // ±MAX_PADDLE_SPEED pixels/frame
+    int8_t target_velocity_y = map_to_velocity(norm_y);  // ±MAX_PADDLE_SPEED pixels/frame
 
     // Apply speed boost if joystick button pressed
     uint8_t button2_pressed = input_controller_button2_pressed(&ctrl->input_ctrl);
     if (button2_pressed) {
-        velocity_x *= PADDLE_SPEED_BOOST_MULTIPLIER;
-        velocity_y *= PADDLE_SPEED_BOOST_MULTIPLIER;
+        target_velocity_x *= PADDLE_SPEED_BOOST_MULTIPLIER;
+        target_velocity_y *= PADDLE_SPEED_BOOST_MULTIPLIER;
 
         // Clamp to prevent overflow
-        if (velocity_x > 127) velocity_x = 127;
-        if (velocity_x < -127) velocity_x = -127;
-        if (velocity_y > 127) velocity_y = 127;
-        if (velocity_y < -127) velocity_y = -127;
+        if (target_velocity_x > 127) target_velocity_x = 127;
+        if (target_velocity_x < -127) target_velocity_x = -127;
+        if (target_velocity_y > 127) target_velocity_y = 127;
+        if (target_velocity_y < -127) target_velocity_y = -127;
     }
 
+    // Smoothly accelerate current velocity toward target velocity
+    ctrl->paddle_current_velocity_x = smooth_accelerate(ctrl->paddle_current_velocity_x, target_velocity_x);
+    ctrl->paddle_current_velocity_y = smooth_accelerate(ctrl->paddle_current_velocity_y, target_velocity_y);
+
     // Set paddle velocities (horizontal paddles move left/right, vertical paddles move up/down)
-    set_physics_velocity(&ctrl->paddles[0], (Vector2D){velocity_x, 0});  // Top paddle
-    set_physics_velocity(&ctrl->paddles[1], (Vector2D){velocity_x, 0});  // Bottom paddle
-    set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, velocity_y});  // Left paddle
-    set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, velocity_y});  // Right paddle
+    set_physics_velocity(&ctrl->paddles[0], (Vector2D){ctrl->paddle_current_velocity_x, 0});  // Top paddle
+    set_physics_velocity(&ctrl->paddles[1], (Vector2D){ctrl->paddle_current_velocity_x, 0});  // Bottom paddle
+    set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Left paddle
+    set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Right paddle
 
     // Update paddle positions (apply velocity)
     update(&ctrl->paddles[0]);
