@@ -36,8 +36,9 @@
 // Game layout constants
 #define WALL_THICKNESS 2
 #define PADDLE_LENGTH 20
-#define PADDLE_WIDTH 4
-#define PADDLE_MARGIN 5
+#define PADDLE_WIDTH 2
+#define PADDLE_MARGIN 3
+#define BALL_RADIUS 3
 
 // Joystick configuration
 #define JOYSTICK_DEADZONE 50  // Raw ADC units (out of 4095)
@@ -45,6 +46,15 @@
 /*============================================================================
  * GAME CONTROLLER STRUCTURE
  *==========================================================================*/
+
+/**
+ * Game state enumeration
+ * Tracks ball state for state machine
+ */
+typedef enum {
+    GAME_STATE_BALL_AT_REST,   // Ball is stationary at center
+    GAME_STATE_BALL_MOVING     // Ball is moving and bouncing
+} GameState;
 
 /**
  * GameController structure
@@ -70,6 +80,15 @@ typedef struct {
     uint8_t v_paddle_x_right;    // Fixed X position for right paddle
     uint8_t v_paddle_min_y;      // Min Y position (top bound)
     uint8_t v_paddle_max_y;      // Max Y position (bottom bound)
+
+    // Game state
+    GameState state;
+
+    // Ball object
+    PhysicsObject ball;
+
+    // Button edge detection
+    uint8_t button1_prev_state;
 } GameController;
 
 /*============================================================================
