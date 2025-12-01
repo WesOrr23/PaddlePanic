@@ -47,6 +47,9 @@
 #define MAX_PADDLE_SPEED 8              // Maximum paddle speed (pixels per frame)
 #define PADDLE_SPEED_BOOST_MULTIPLIER 2 // Speed multiplier when joystick button pressed
 
+// Collision configuration
+#define PADDLE_COLLISION_COOLDOWN_FRAMES 8  // Frames to wait before allowing paddle collision again
+
 // Velocity curve breakpoints (piecewise linear mapping)
 #define PADDLE_DEFLECTION_LOW  512      // 25% joystick deflection (0-2048 range)
 #define PADDLE_DEFLECTION_MID  1536     // 75% joystick deflection (0-2048 range)
@@ -101,6 +104,9 @@ typedef struct {
 
     // Score tracking
     uint16_t score;
+
+    // Collision cooldown per paddle (prevents paddle trapping)
+    uint8_t paddle_collision_cooldown[4];  // One cooldown per paddle
 
     // Button edge detection
     uint8_t button1_prev_state;

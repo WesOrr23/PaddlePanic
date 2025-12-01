@@ -204,6 +204,9 @@ void init_game_controller(GameController* controller) {
     // Initialize game state
     controller->state = GAME_STATE_BALL_AT_REST;
     controller->score = 0;
+    for (int i = 0; i < 4; i++) {
+        controller->paddle_collision_cooldown[i] = 0;
+    }
     controller->button1_prev_state = 0;
 
     // Create ball (starts at rest in center)
@@ -305,15 +308,23 @@ void update_game_controller(GameController* ctrl) {
                 // Reset ball to center, stop movement
                 set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
                 set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
+                for (int i = 0; i < 4; i++) {
+                    ctrl->paddle_collision_cooldown[i] = 0;  // Reset all cooldowns
+                }
                 ctrl->state = GAME_STATE_BALL_AT_REST;
             } else {
                 // Update ball physics (applies velocity to position)
                 update(&ctrl->ball);
 
                 // Check collisions with paddles first - increment score
+                // Check per-paddle cooldown (prevents paddle trapping)
                 for (int i = 0; i < 4; i++) {
-                    if (check_collision(&ctrl->ball, &ctrl->paddles[i])) {
-                        ctrl->score++;
+                    if (ctrl->paddle_collision_cooldown[i] == 0) {
+                        if (check_collision(&ctrl->ball, &ctrl->paddles[i])) {
+                            ctrl->score++;
+                            ctrl->paddle_collision_cooldown[i] = PADDLE_COLLISION_COOLDOWN_FRAMES;
+                            // Don't break - ball can hit multiple paddles in corners
+                        }
                     }
                 }
 
@@ -328,6 +339,9 @@ void update_game_controller(GameController* ctrl) {
                         // Reset ball to center
                         set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
                         set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
+                        for (int j = 0; j < 4; j++) {
+                            ctrl->paddle_collision_cooldown[j] = 0;  // Reset all cooldowns
+                        }
                         ctrl->state = GAME_STATE_BALL_AT_REST;
                         ctrl->score = 0;
                         break;
@@ -339,6 +353,13 @@ void update_game_controller(GameController* ctrl) {
 
     // Update button previous state
     ctrl->button1_prev_state = button1_current;
+
+    // Decrement collision cooldowns for all paddles
+    for (int i = 0; i < 4; i++) {
+        if (ctrl->paddle_collision_cooldown[i] > 0) {
+            ctrl->paddle_collision_cooldown[i]--;
+        }
+    }
 }
 
 /*============================================================================
