@@ -269,52 +269,55 @@ void update_game_controller(GameController* ctrl) {
     // Update input controller (polls hardware)
     update_input_controller(&ctrl->input_ctrl);
 
-    // Get raw ADC values
-    uint16_t raw_x = input_controller_joystick_x(&ctrl->input_ctrl);  // 0-4095
-    uint16_t raw_y = input_controller_joystick_y(&ctrl->input_ctrl);  // 0-4095
+    // Only update paddles during gameplay states (not during pause/title/game over)
+    if (ctrl->state == GAME_STATE_BALL_AT_REST || ctrl->state == GAME_STATE_BALL_MOVING) {
+        // Get raw ADC values
+        uint16_t raw_x = input_controller_joystick_x(&ctrl->input_ctrl);  // 0-4095
+        uint16_t raw_y = input_controller_joystick_y(&ctrl->input_ctrl);  // 0-4095
 
-    // Normalize (apply deadzone, center at 0) and invert axes for correct control direction
-    int16_t norm_x = -normalize_adc(raw_x);  // Inverted: -2048 to +2047
-    int16_t norm_y = -normalize_adc(raw_y);  // Inverted: -2048 to +2047
+        // Normalize (apply deadzone, center at 0) and invert axes for correct control direction
+        int16_t norm_x = -normalize_adc(raw_x);  // Inverted: -2048 to +2047
+        int16_t norm_y = -normalize_adc(raw_y);  // Inverted: -2048 to +2047
 
-    // Map to target velocities
-    int8_t target_velocity_x = map_to_velocity(norm_x);  // ±MAX_PADDLE_SPEED pixels/frame
-    int8_t target_velocity_y = map_to_velocity(norm_y);  // ±MAX_PADDLE_SPEED pixels/frame
+        // Map to target velocities
+        int8_t target_velocity_x = map_to_velocity(norm_x);  // ±MAX_PADDLE_SPEED pixels/frame
+        int8_t target_velocity_y = map_to_velocity(norm_y);  // ±MAX_PADDLE_SPEED pixels/frame
 
-    // Apply speed boost if joystick button pressed
-    uint8_t button2_pressed = input_controller_button2_pressed(&ctrl->input_ctrl);
-    if (button2_pressed) {
-        target_velocity_x *= PADDLE_SPEED_BOOST_MULTIPLIER;
-        target_velocity_y *= PADDLE_SPEED_BOOST_MULTIPLIER;
+        // Apply speed boost if joystick button pressed
+        uint8_t button2_pressed = input_controller_button2_pressed(&ctrl->input_ctrl);
+        if (button2_pressed) {
+            target_velocity_x *= PADDLE_SPEED_BOOST_MULTIPLIER;
+            target_velocity_y *= PADDLE_SPEED_BOOST_MULTIPLIER;
 
-        // Clamp to prevent overflow
-        if (target_velocity_x > 127) target_velocity_x = 127;
-        if (target_velocity_x < -127) target_velocity_x = -127;
-        if (target_velocity_y > 127) target_velocity_y = 127;
-        if (target_velocity_y < -127) target_velocity_y = -127;
+            // Clamp to prevent overflow
+            if (target_velocity_x > 127) target_velocity_x = 127;
+            if (target_velocity_x < -127) target_velocity_x = -127;
+            if (target_velocity_y > 127) target_velocity_y = 127;
+            if (target_velocity_y < -127) target_velocity_y = -127;
+        }
+
+        // Smoothly accelerate current velocity toward target velocity
+        ctrl->paddle_current_velocity_x = smooth_accelerate(ctrl->paddle_current_velocity_x, target_velocity_x);
+        ctrl->paddle_current_velocity_y = smooth_accelerate(ctrl->paddle_current_velocity_y, target_velocity_y);
+
+        // Set paddle velocities (horizontal paddles move left/right, vertical paddles move up/down)
+        set_physics_velocity(&ctrl->paddles[0], (Vector2D){ctrl->paddle_current_velocity_x, 0});  // Top paddle
+        set_physics_velocity(&ctrl->paddles[1], (Vector2D){ctrl->paddle_current_velocity_x, 0});  // Bottom paddle
+        set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Left paddle
+        set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Right paddle
+
+        // Update paddle positions (apply velocity)
+        update(&ctrl->paddles[0]);
+        update(&ctrl->paddles[1]);
+        update(&ctrl->paddles[2]);
+        update(&ctrl->paddles[3]);
+
+        // Clamp paddles to bounds
+        clamp_paddle(&ctrl->paddles[0], ctrl->h_paddle_min_x, ctrl->h_paddle_max_x, 1);  // Horizontal
+        clamp_paddle(&ctrl->paddles[1], ctrl->h_paddle_min_x, ctrl->h_paddle_max_x, 1);  // Horizontal
+        clamp_paddle(&ctrl->paddles[2], ctrl->v_paddle_min_y, ctrl->v_paddle_max_y, 0);  // Vertical
+        clamp_paddle(&ctrl->paddles[3], ctrl->v_paddle_min_y, ctrl->v_paddle_max_y, 0);  // Vertical
     }
-
-    // Smoothly accelerate current velocity toward target velocity
-    ctrl->paddle_current_velocity_x = smooth_accelerate(ctrl->paddle_current_velocity_x, target_velocity_x);
-    ctrl->paddle_current_velocity_y = smooth_accelerate(ctrl->paddle_current_velocity_y, target_velocity_y);
-
-    // Set paddle velocities (horizontal paddles move left/right, vertical paddles move up/down)
-    set_physics_velocity(&ctrl->paddles[0], (Vector2D){ctrl->paddle_current_velocity_x, 0});  // Top paddle
-    set_physics_velocity(&ctrl->paddles[1], (Vector2D){ctrl->paddle_current_velocity_x, 0});  // Bottom paddle
-    set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Left paddle
-    set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Right paddle
-
-    // Update paddle positions (apply velocity)
-    update(&ctrl->paddles[0]);
-    update(&ctrl->paddles[1]);
-    update(&ctrl->paddles[2]);
-    update(&ctrl->paddles[3]);
-
-    // Clamp paddles to bounds
-    clamp_paddle(&ctrl->paddles[0], ctrl->h_paddle_min_x, ctrl->h_paddle_max_x, 1);  // Horizontal
-    clamp_paddle(&ctrl->paddles[1], ctrl->h_paddle_min_x, ctrl->h_paddle_max_x, 1);  // Horizontal
-    clamp_paddle(&ctrl->paddles[2], ctrl->v_paddle_min_y, ctrl->v_paddle_max_y, 0);  // Vertical
-    clamp_paddle(&ctrl->paddles[3], ctrl->v_paddle_min_y, ctrl->v_paddle_max_y, 0);  // Vertical
 
     // Button edge detection
     uint8_t button1_current = input_controller_button1_pressed(&ctrl->input_ctrl);
@@ -501,9 +504,13 @@ void draw_game_controller(GameController* ctrl) {
         draw(pause_border);
         destroy_shape(pause_border);
 
-        // Draw score number (scale 3 for larger display)
+        // Draw "SCORE" label
+        // Scale 1: "SCORE" = 5 chars = 20 pixels, center = (128-20)/2 = 54
+        drawText(54, SCREEN_HEIGHT/2 - 10, "SCORE", COLOR_WHITE, 1);
+
+        // Draw score number (scale 2 for display)
         // Center on screen - approximate offset for 1-3 digits
-        drawNumber(SCREEN_WIDTH/2 - 10, SCREEN_HEIGHT/2 - 7, ctrl->score, COLOR_WHITE, 3);
+        drawNumber(SCREEN_WIDTH/2 - 6, SCREEN_HEIGHT/2 + 0, ctrl->score, COLOR_WHITE, 2);
     }
 
     // Draw countdown (if counting down)
