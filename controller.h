@@ -85,8 +85,8 @@ typedef struct {
  * Hardware configuration:
  * - Button 1: PORTC PIN4 (PC4) - Onboard button, active-low with pull-up
  * - Button 2: PORTC PIN5 (PC5) - Joystick button, active-low with pull-up
- * - Joystick X: ADC Channel 0 (PORTA PIN0/AIN0)
- * - Joystick Y: ADC Channel 1 (PORTA PIN1/AIN1)
+ * - Joystick X: ADC Channel 1 (PORTA PIN1/AIN1)
+ * - Joystick Y: ADC Channel 2 (PORTA PIN2/AIN2)
  *
  * Initializes ADC peripheral and creates all InputDevices with:
  * - Threshold: 10 (1% of 1023 range) for analog inputs

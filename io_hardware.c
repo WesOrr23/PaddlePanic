@@ -5,6 +5,7 @@
  *==========================================================================*/
 
 #include "io_hardware.h"
+#include <avr/io.h>
 #include <stdlib.h>
 
 /*============================================================================
@@ -109,16 +110,26 @@ static void poll_analog(InputDevice* self) {
 
     AnalogData* data = (AnalogData*)self->device_data;
 
-    // Select ADC channel
-    ADC0.MUXPOS = data->adc_channel;
+    // Select ADC channel using proper MUX constants
+    // Must use ADC_MUXPOS_AINx_gc constants, not raw channel numbers
+    switch (data->adc_channel) {
+        case 1: ADC0.MUXPOS = ADC_MUXPOS_AIN1_gc; break;
+        case 2: ADC0.MUXPOS = ADC_MUXPOS_AIN2_gc; break;
+        case 3: ADC0.MUXPOS = ADC_MUXPOS_AIN3_gc; break;
+        case 4: ADC0.MUXPOS = ADC_MUXPOS_AIN4_gc; break;
+        case 5: ADC0.MUXPOS = ADC_MUXPOS_AIN5_gc; break;
+        case 6: ADC0.MUXPOS = ADC_MUXPOS_AIN6_gc; break;
+        case 7: ADC0.MUXPOS = ADC_MUXPOS_AIN7_gc; break;
+        default: return;  // Invalid channel
+    }
 
-    // Start conversion
-    ADC0.COMMAND = ADC_START_IMMEDIATE_gc;
+    // Start conversion (use |= to preserve mode bits)
+    ADC0.COMMAND |= ADC_START_IMMEDIATE_gc;
 
     // Wait for conversion to complete
     while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
 
-    // Read result (10-bit: 0-1023)
+    // Read result (12-bit: 0-4095)
     uint16_t raw_value = ADC0.RESULT;
 
     // Check relative threshold (has value changed significantly?)
@@ -156,14 +167,14 @@ InputDevice* create_analog(uint8_t adc_channel, uint16_t threshold,
 
     // Initialize AnalogData
     data->adc_channel = adc_channel;
-    data->last_accepted_value = 512;  // Start at center (10-bit midpoint)
+    data->last_accepted_value = 2048;  // Start at center (12-bit midpoint)
     data->threshold = threshold;
 
     // Initialize InputDevice
     device->type = INPUT_TYPE_ANALOG;
     device->poll_impl = poll_analog;
     device->device_data = data;
-    device->current_value = 512;  // Start at center
+    device->current_value = 2048;  // Start at center
     device->on_press = NULL;      // Not used for analog
     device->on_release = NULL;
     device->on_value_change = on_value_change;
@@ -200,20 +211,26 @@ void destroy_input_device(InputDevice* device) {
 
 /**
  * Initialize ADC peripheral for analog inputs
- * Configures ADC0 for 10-bit single-ended mode
+ * Configures ADC0 for 12-bit single-ended mode
  */
 void init_adc(void) {
     // Reference: ATtiny1627 Datasheet Section 30 (ADC)
     // Based on working ADC example code
 
-    // Enable ADC (10-bit is default resolution)
+    // Configure PA1 and PA2 as analog inputs
+    // Disable digital input buffers for accurate ADC readings
+    PORTA.DIRCLR = PIN1_bm | PIN2_bm;  // Set PA1 and PA2 as inputs
+    PORTA.PIN1CTRL = PORT_ISC_INPUT_DISABLE_gc;  // Disable digital buffer on PA1
+    PORTA.PIN2CTRL = PORT_ISC_INPUT_DISABLE_gc;  // Disable digital buffer on PA2
+
+    ADC0.COMMAND |= ADC_MODE_SINGLE_12BIT_gc;
+
+    // Enable ADC (12-bit resolution)
     ADC0.CTRLA = ADC_ENABLE_bm;
 
     // Configure ADC prescaler (CLK_PER / 4)
     ADC0.CTRLB = ADC_PRESC_DIV4_gc;
 
     // Configure voltage reference
-    // Using internal 4.096V reference (same as working example)
-    // TODO: May need to adjust to VDD reference for joystick
-    ADC0.CTRLC = ADC_REFSEL_4096MV_gc;
+    ADC0.CTRLC = ADC_REFSEL_VDD_gc;
 }

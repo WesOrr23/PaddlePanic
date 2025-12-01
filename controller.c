@@ -12,11 +12,11 @@
  *==========================================================================*/
 
 /**
- * Normalize 10-bit ADC value (0-1023) to int8_t (-127 to +127)
+ * Normalize 12-bit ADC value (0-4095) to int8_t (-127 to +127)
  * Applies deadzone at controller level
  */
 static int8_t normalize_analog(uint16_t raw_value) {
-    const uint16_t CENTER = 512;
+    const uint16_t CENTER = 2048;
 
     // Calculate distance from center
     int16_t delta = (int16_t)raw_value - (int16_t)CENTER;
@@ -29,10 +29,11 @@ static int8_t normalize_analog(uint16_t raw_value) {
     }
 
     // Scale to int8_t range (-127 to +127)
-    // Delta range: -512 to +511
+    // Delta range: -2048 to +2047
     // Target range: -127 to +127
-    // Scaling factor: 127/511 ≈ 1/4
-    int16_t scaled = (delta * 127) / 511;
+    // Scaling factor: 127/2047 ≈ 1/16
+    // NOTE: Use int32_t to prevent overflow (2047 * 127 = 259,969 > 32,767)
+    int32_t scaled = ((int32_t)delta * 127) / 2047;
 
     // Clamp to int8_t range
     if (scaled > 127) scaled = 127;
@@ -52,16 +53,17 @@ void init_controller(Controller* ctrl) {
     init_adc();
 
     // Create button devices
-    // Both buttons are active-low with pull-up resistors
+    // Button 1 (onboard): active-low with pull-up
+    // Button 2 (joystick): trying active-high (no pull-up)
     // Callbacks set to NULL - using polling approach
-    ctrl->button1 = create_button(&PORTC, PIN4_bm, 1, NULL, NULL);
-    ctrl->button2 = create_button(&PORTC, PIN5_bm, 1, NULL, NULL);
+    ctrl->button1 = create_button(&PORTC, PIN4_bm, 1, NULL, NULL);  // Active-low
+    ctrl->button2 = create_button(&PORTC, PIN5_bm, 1, NULL, NULL);  // Active-high (test)
 
     // Create analog devices (joystick axes)
     // Threshold set to ANALOG_THRESHOLD (10 = 1% of 1023 range)
     // Callbacks set to NULL - using polling approach
-    ctrl->joystick_x = create_analog(0, ANALOG_THRESHOLD, NULL);  // ADC Channel 0 (PA0)
-    ctrl->joystick_y = create_analog(1, ANALOG_THRESHOLD, NULL);  // ADC Channel 1 (PA1)
+    ctrl->joystick_x = create_analog(1, ANALOG_THRESHOLD, NULL);  // ADC Channel 1 (PA1)
+    ctrl->joystick_y = create_analog(2, ANALOG_THRESHOLD, NULL);  // ADC Channel 2 (PA2)
 
     // Initialize state to default values
     ctrl->button1_pressed = 0;
@@ -101,8 +103,9 @@ void update_controller(Controller* ctrl) {
     uint16_t raw_x = get_input_value(ctrl->joystick_x);
     uint16_t raw_y = get_input_value(ctrl->joystick_y);
 
-    ctrl->joystick_x_value = normalize_analog(raw_x);
-    ctrl->joystick_y_value = normalize_analog(raw_y);
+    // Negate both axes to match screen coordinates
+    ctrl->joystick_x_value = -normalize_analog(raw_x);
+    ctrl->joystick_y_value = -normalize_analog(raw_y);
 }
 
 /*============================================================================

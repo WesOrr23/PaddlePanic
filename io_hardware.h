@@ -4,7 +4,7 @@
  * Low-level hardware input abstraction for ATtiny1627
  *
  * Provides polymorphic InputDevice interface for digital buttons (GPIO)
- * and analog joystick axes (ADC with 10-bit resolution).
+ * and analog joystick axes (ADC with 12-bit resolution).
  *
  * Features:
  * - Callback-based event system (on_press, on_release, on_value_change)
@@ -102,7 +102,7 @@ struct InputDevice {
     void* device_data;                      // Pointer to type-specific data
 
     // Current accepted value (filtered)
-    uint16_t current_value;                 // Button: 0 or 1; Analog: 0-1023
+    uint16_t current_value;                 // Button: 0 or 1; Analog: 0-4095
 
     // Event callbacks (can be NULL)
     InputCallback on_press;                 // Button: triggered on press
@@ -163,7 +163,7 @@ InputDevice* create_button(volatile PORT_t* port, uint8_t pin_bm,
  * Uses relative threshold - callback fires when value changes by threshold amount
  *
  * @param adc_channel ADC channel number (0-14)
- * @param threshold Minimum change to trigger callback (e.g., 10 = 1% of 1023 range)
+ * @param threshold Minimum change to trigger callback (e.g., 40 = 1% of 4095 range)
  * @param on_value_change Callback when value changes beyond threshold (can be NULL)
  * @return Pointer to new InputDevice, or NULL on allocation failure
  */
@@ -190,7 +190,7 @@ void poll_input(InputDevice* device);
  * Returns the last accepted (filtered) value
  *
  * @param device Pointer to input device
- * @return Current value (button: 0 or 1, analog: 0-1023)
+ * @return Current value (button: 0 or 1, analog: 0-4095)
  */
 uint16_t get_input_value(InputDevice* device);
 
@@ -206,12 +206,12 @@ void destroy_input_device(InputDevice* device);
 
 /**
  * Initialize ADC peripheral for analog inputs
- * Configures ADC0 for 10-bit single-ended mode with VDD reference
+ * Configures ADC0 for 12-bit single-ended mode
  * Must be called before creating analog input devices
  *
  * Configuration:
- * - 10-bit resolution (0-1023 range)
- * - VDD voltage reference
+ * - 12-bit resolution (0-4095 range)
+ * - 4.096V internal voltage reference
  * - CLK_PER / 4 prescaler
  */
 void init_adc(void);
