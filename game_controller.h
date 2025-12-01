@@ -41,7 +41,19 @@
 #define BALL_RADIUS 3
 
 // Joystick configuration
-#define JOYSTICK_DEADZONE 50  // Raw ADC units (out of 4095)
+#define JOYSTICK_DEADZONE 10  // Raw ADC units (out of 4095)
+
+// Paddle velocity configuration
+#define MAX_PADDLE_SPEED 8              // Maximum paddle speed (pixels per frame)
+#define PADDLE_SPEED_BOOST_MULTIPLIER 2 // Speed multiplier when joystick button pressed
+
+// Velocity curve breakpoints (piecewise linear mapping)
+#define PADDLE_DEFLECTION_LOW  512      // 25% joystick deflection (0-2048 range)
+#define PADDLE_DEFLECTION_MID  1536     // 75% joystick deflection (0-2048 range)
+
+#define PADDLE_SPEED_LOW   2            // Speed at 25% deflection (pixels per frame)
+#define PADDLE_SPEED_MID   4            // Speed at 75% deflection (pixels per frame)
+#define PADDLE_SPEED_HIGH  8            // Speed at 100% deflection (pixels per frame)
 
 /*============================================================================
  * GAME CONTROLLER STRUCTURE
@@ -86,6 +98,9 @@ typedef struct {
 
     // Ball object
     PhysicsObject ball;
+
+    // Score tracking
+    uint16_t score;
 
     // Button edge detection
     uint8_t button1_prev_state;

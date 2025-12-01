@@ -6,6 +6,7 @@
 
 #include "game_controller.h"
 #include "shapes.h"
+#include "sh1106_graphics.h"
 #include <stddef.h>
 
 /*============================================================================
@@ -75,27 +76,62 @@ static int16_t normalize_adc(uint16_t raw_value) {
 }
 
 /**
- * Map normalized joystick value to screen position
+ * Map normalized joystick value to paddle velocity with custom curve
+ * Piecewise linear mapping using configurable breakpoints
  * @param normalized_value Normalized joystick (-2048 to +2047, 0 at center)
- * @param min_pos Minimum allowed position
- * @param max_pos Maximum allowed position
- * @return Mapped position (uint8_t)
+ * @return Velocity (±MAX_PADDLE_SPEED pixels per frame)
  */
-static uint8_t map_to_position(int16_t normalized_value, uint8_t min_pos, uint8_t max_pos) {
-    uint8_t range = max_pos - min_pos;
-    uint8_t center = min_pos + range / 2;
+static int8_t map_to_velocity(int16_t normalized_value) {
+    // Preserve sign
+    int8_t sign = (normalized_value < 0) ? -1 : 1;
+    int16_t abs_value = (normalized_value < 0) ? -normalized_value : normalized_value;
 
-    // Scale normalized_value (-2048 to +2047) to position offset
-    // normalized_value * range / 4095 gives offset from center
-    int32_t offset = ((int32_t)normalized_value * (int32_t)range) / 4095;
+    int32_t velocity;
 
-    int16_t position = center + offset;
+    // Piecewise linear mapping with configurable breakpoints
+    if (abs_value < PADDLE_DEFLECTION_LOW) {
+        // 0% to 25%: maps to 0 to PADDLE_SPEED_LOW
+        velocity = (abs_value * PADDLE_SPEED_LOW) / PADDLE_DEFLECTION_LOW;
+    } else if (abs_value < PADDLE_DEFLECTION_MID) {
+        // 25% to 75%: maps to PADDLE_SPEED_LOW to PADDLE_SPEED_MID
+        velocity = PADDLE_SPEED_LOW +
+                   ((abs_value - PADDLE_DEFLECTION_LOW) * (PADDLE_SPEED_MID - PADDLE_SPEED_LOW)) /
+                   (PADDLE_DEFLECTION_MID - PADDLE_DEFLECTION_LOW);
+    } else {
+        // 75% to 100%: maps to PADDLE_SPEED_MID to PADDLE_SPEED_HIGH
+        velocity = PADDLE_SPEED_MID +
+                   ((abs_value - PADDLE_DEFLECTION_MID) * (PADDLE_SPEED_HIGH - PADDLE_SPEED_MID)) /
+                   (2048 - PADDLE_DEFLECTION_MID);
+    }
 
-    // Clamp to bounds
-    if (position < min_pos) position = min_pos;
-    if (position > max_pos) position = max_pos;
+    // Clamp to max speed (safety)
+    if (velocity > MAX_PADDLE_SPEED) velocity = MAX_PADDLE_SPEED;
 
-    return (uint8_t)position;
+    // Restore sign
+    return (int8_t)(velocity * sign);
+}
+
+/**
+ * Clamp paddle position to bounds
+ * @param paddle Pointer to paddle physics object
+ * @param min_coord Minimum allowed coordinate
+ * @param max_coord Maximum allowed coordinate
+ * @param is_horizontal True for X clamping (horizontal paddles), False for Y clamping (vertical paddles)
+ */
+static void clamp_paddle(PhysicsObject* paddle, uint8_t min_coord, uint8_t max_coord, uint8_t is_horizontal) {
+    Point pos = get_physics_position(paddle);
+
+    if (is_horizontal) {
+        // Clamp X coordinate
+        if (pos.x < min_coord) pos.x = min_coord;
+        if (pos.x > max_coord) pos.x = max_coord;
+    } else {
+        // Clamp Y coordinate
+        if (pos.y < min_coord) pos.y = min_coord;
+        if (pos.y > max_coord) pos.y = max_coord;
+    }
+
+    set_physics_position(paddle, pos);
 }
 
 /*============================================================================
@@ -167,6 +203,7 @@ void init_game_controller(GameController* controller) {
 
     // Initialize game state
     controller->state = GAME_STATE_BALL_AT_REST;
+    controller->score = 0;
     controller->button1_prev_state = 0;
 
     // Create ball (starts at rest in center)
@@ -212,17 +249,40 @@ void update_game_controller(GameController* ctrl) {
     int16_t norm_x = -normalize_adc(raw_x);  // Inverted: -2048 to +2047
     int16_t norm_y = -normalize_adc(raw_y);  // Inverted: -2048 to +2047
 
-    // Map to pixel positions
-    uint8_t h_paddle_x = map_to_position(norm_x, ctrl->h_paddle_min_x, ctrl->h_paddle_max_x);
-    uint8_t v_paddle_y = map_to_position(norm_y, ctrl->v_paddle_min_y, ctrl->v_paddle_max_y);
+    // Map to velocities
+    int8_t velocity_x = map_to_velocity(norm_x);  // ±MAX_PADDLE_SPEED pixels/frame
+    int8_t velocity_y = map_to_velocity(norm_y);  // ±MAX_PADDLE_SPEED pixels/frame
 
-    // Update horizontal paddles (top/bottom - move left/right only)
-    set_physics_position(&ctrl->paddles[0], (Point){h_paddle_x, ctrl->h_paddle_y_top});
-    set_physics_position(&ctrl->paddles[1], (Point){h_paddle_x, ctrl->h_paddle_y_bottom});
+    // Apply speed boost if joystick button pressed
+    uint8_t button2_pressed = input_controller_button2_pressed(&ctrl->input_ctrl);
+    if (button2_pressed) {
+        velocity_x *= PADDLE_SPEED_BOOST_MULTIPLIER;
+        velocity_y *= PADDLE_SPEED_BOOST_MULTIPLIER;
 
-    // Update vertical paddles (left/right - move up/down only)
-    set_physics_position(&ctrl->paddles[2], (Point){ctrl->v_paddle_x_left, v_paddle_y});
-    set_physics_position(&ctrl->paddles[3], (Point){ctrl->v_paddle_x_right, v_paddle_y});
+        // Clamp to prevent overflow
+        if (velocity_x > 127) velocity_x = 127;
+        if (velocity_x < -127) velocity_x = -127;
+        if (velocity_y > 127) velocity_y = 127;
+        if (velocity_y < -127) velocity_y = -127;
+    }
+
+    // Set paddle velocities (horizontal paddles move left/right, vertical paddles move up/down)
+    set_physics_velocity(&ctrl->paddles[0], (Vector2D){velocity_x, 0});  // Top paddle
+    set_physics_velocity(&ctrl->paddles[1], (Vector2D){velocity_x, 0});  // Bottom paddle
+    set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, velocity_y});  // Left paddle
+    set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, velocity_y});  // Right paddle
+
+    // Update paddle positions (apply velocity)
+    update(&ctrl->paddles[0]);
+    update(&ctrl->paddles[1]);
+    update(&ctrl->paddles[2]);
+    update(&ctrl->paddles[3]);
+
+    // Clamp paddles to bounds
+    clamp_paddle(&ctrl->paddles[0], ctrl->h_paddle_min_x, ctrl->h_paddle_max_x, 1);  // Horizontal
+    clamp_paddle(&ctrl->paddles[1], ctrl->h_paddle_min_x, ctrl->h_paddle_max_x, 1);  // Horizontal
+    clamp_paddle(&ctrl->paddles[2], ctrl->v_paddle_min_y, ctrl->v_paddle_max_y, 0);  // Vertical
+    clamp_paddle(&ctrl->paddles[3], ctrl->v_paddle_min_y, ctrl->v_paddle_max_y, 0);  // Vertical
 
     // Button edge detection
     uint8_t button1_current = input_controller_button1_pressed(&ctrl->input_ctrl);
@@ -250,14 +310,28 @@ void update_game_controller(GameController* ctrl) {
                 // Update ball physics (applies velocity to position)
                 update(&ctrl->ball);
 
-                // Check collisions with walls
+                // Check collisions with paddles first - increment score
                 for (int i = 0; i < 4; i++) {
-                    check_collision(&ctrl->ball, &ctrl->walls[i]);
+                    if (check_collision(&ctrl->ball, &ctrl->paddles[i])) {
+                        ctrl->score++;
+                    }
                 }
 
-                // Check collisions with paddles
+                // Check collisions with walls - game over
                 for (int i = 0; i < 4; i++) {
-                    check_collision(&ctrl->ball, &ctrl->paddles[i]);
+                    if (check_collision(&ctrl->ball, &ctrl->walls[i])) {
+                        // Game over - flash screen
+                        invertDisplay(1);
+                        for (volatile uint32_t delay = 0; delay < 50000; delay++) {}
+                        invertDisplay(0);
+
+                        // Reset ball to center
+                        set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
+                        set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
+                        ctrl->state = GAME_STATE_BALL_AT_REST;
+                        ctrl->score = 0;
+                        break;
+                    }
                 }
             }
             break;
