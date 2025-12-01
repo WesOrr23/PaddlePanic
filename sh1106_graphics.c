@@ -80,8 +80,11 @@ void sendData(uint8_t dataByte) {
  * DISPLAY INITIALIZATION
  *==========================================================================*/
 void initScreen() {
+    // Initialize SPI first (screen requires SPI)
+    initSPI();
+
     PORTB.DIR |= PIN0_bm | PIN1_bm;                                          // Set as outputs: PB0=RESET, PB1=D/C
-    
+
     // Hardware reset sequence per SH1106 datasheet
     PORTB.OUT |= PIN0_bm;                                                    // RESET high (inactive)
     for (uint8_t i = 0; i < 250; i++) {}                                     // Short delay
