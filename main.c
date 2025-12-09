@@ -1,5 +1,5 @@
 /*
- * main.c - PaddlePanic Game
+ * main.c - PaddlePanic
  *
  * Created: 10/27/2024 9:03:11 PM
  * Author: Wes Orr
