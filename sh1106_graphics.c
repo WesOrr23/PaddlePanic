@@ -46,13 +46,14 @@ uint8_t buffer[WIDTH * ((HEIGHT + 7) / 8)] = {0};
  *==========================================================================*/
 void initSPI() {
     PORTMUX.SPIROUTEA |= PORTMUX_SPI0_ALT1_gc;                               // Route SPI0 to alternate pin locations
-    
+
     PORTC.DIR |= PIN0_bm | PIN2_bm | PIN3_bm;                                // Set as outputs: PC0=SCLK, PC2=MOSI, PC3=SS
-    
-    SPI0.CTRLA |= SPI_MASTER_bm | SPI_CLK2X_bm | SPI_PRESC_DIV16_gc;         // Host mode, double speed enabled, prescaler /16 → f_clk/8
-    SPI0.CTRLB |= SPI_MODE_3_gc;                                             // CPOL=1, CPHA=1 (idle high, sample on rising edge)
+
+    // Fast SPI clock with Mode 0 for ST7789
+    SPI0.CTRLA |= SPI_MASTER_bm | SPI_CLK2X_bm | SPI_PRESC_DIV4_gc;         // Host mode, double speed, prescaler /4 → ~1.6 MHz
+    SPI0.CTRLB |= SPI_MODE_0_gc;                                             // CPOL=0, CPHA=0 (ST7789 works with Mode 0)
     SPI0.CTRLA |= SPI_ENABLE_bm;                                             // Enable SPI peripheral
-    
+
     PORTC.OUTSET = PIN3_bm;                                                  // Deassert CS (active low, so idle high)
 }
 

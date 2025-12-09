@@ -29,14 +29,12 @@ void init_physics(PhysicsObject* obj, Point position, Vector2D velocity,
 
     Shape* shape = NULL;
 
-    // Create shape based on type
+    // Create shape based on type (ST7789 - always filled)
     if (type == SHAPE_CIRCLE) {
-        shape = create_circle(position, params.circle.radius,
-                            params.circle.is_filled, params.circle.color);
+        shape = create_circle(position, params.circle.radius, params.circle.color);
     } else if (type == SHAPE_RECTANGLE) {
         shape = create_rectangle(position, params.rect.width, params.rect.height,
-                               params.rect.anchor, params.rect.is_filled,
-                               params.rect.color);
+                               params.rect.anchor, params.rect.color);
     }
 
     if (shape == NULL) return;  // Handle allocation failure

@@ -6,8 +6,7 @@
 
 #include "game_controller.h"
 #include "shapes.h"
-#include "sh1106_graphics.h"
-#include "text.h"
+#include "st7789_text.h"
 #include <stddef.h>
 
 /*============================================================================
@@ -182,43 +181,43 @@ void init_game_controller(GameController* controller) {
     // Create walls
     init_physics(&controller->walls[0], (Point){0, 0}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {SCREEN_WIDTH, WALL_THICKNESS, ANCHOR_TOP_LEFT, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {SCREEN_WIDTH, WALL_THICKNESS, ANCHOR_TOP_LEFT, 255}},
                  wall_hit);
 
     init_physics(&controller->walls[1], (Point){0, SCREEN_HEIGHT - WALL_THICKNESS}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {SCREEN_WIDTH, WALL_THICKNESS, ANCHOR_TOP_LEFT, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {SCREEN_WIDTH, WALL_THICKNESS, ANCHOR_TOP_LEFT, 255}},
                  wall_hit);
 
     init_physics(&controller->walls[2], (Point){0, 0}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {WALL_THICKNESS, SCREEN_HEIGHT, ANCHOR_TOP_LEFT, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {WALL_THICKNESS, SCREEN_HEIGHT, ANCHOR_TOP_LEFT, 255}},
                  wall_hit);
 
     init_physics(&controller->walls[3], (Point){SCREEN_WIDTH - WALL_THICKNESS, 0}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {WALL_THICKNESS, SCREEN_HEIGHT, ANCHOR_TOP_LEFT, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {WALL_THICKNESS, SCREEN_HEIGHT, ANCHOR_TOP_LEFT, 255}},
                  wall_hit);
 
     // Create paddles (all start centered)
     init_physics(&controller->paddles[0], (Point){SCREEN_WIDTH/2, controller->h_paddle_y_top}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {PADDLE_LENGTH, PADDLE_WIDTH, ANCHOR_CENTER, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {PADDLE_LENGTH, PADDLE_WIDTH, ANCHOR_CENTER, 255}},
                  paddle_hit);
 
     init_physics(&controller->paddles[1], (Point){SCREEN_WIDTH/2, controller->h_paddle_y_bottom}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {PADDLE_LENGTH, PADDLE_WIDTH, ANCHOR_CENTER, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {PADDLE_LENGTH, PADDLE_WIDTH, ANCHOR_CENTER, 255}},
                  paddle_hit);
 
     init_physics(&controller->paddles[2], (Point){controller->v_paddle_x_left, SCREEN_HEIGHT/2}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {PADDLE_WIDTH, PADDLE_LENGTH, ANCHOR_CENTER, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {PADDLE_WIDTH, PADDLE_LENGTH, ANCHOR_CENTER, 255}},
                  paddle_hit);
 
     init_physics(&controller->paddles[3], (Point){controller->v_paddle_x_right, SCREEN_HEIGHT/2}, (Vector2D){0, 0},
                  SHAPE_RECTANGLE,
-                 (ShapeParams){.rect = {PADDLE_WIDTH, PADDLE_LENGTH, ANCHOR_CENTER, 1, COLOR_WHITE}},
+                 (ShapeParams){.rect = {PADDLE_WIDTH, PADDLE_LENGTH, ANCHOR_CENTER, 255}},
                  paddle_hit);
 
     // Initialize game state
@@ -239,7 +238,7 @@ void init_game_controller(GameController* controller) {
                  (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2},
                  (Vector2D){0, 0},  // At rest initially
                  SHAPE_CIRCLE,
-                 (ShapeParams){.circle = {BALL_RADIUS, 1, COLOR_WHITE}},
+                 (ShapeParams){.circle = {BALL_RADIUS, 255}},
                  ball_hit);
 }
 
@@ -375,9 +374,10 @@ void update_game_controller(GameController* ctrl) {
                 for (int i = 0; i < 4; i++) {
                     if (check_collision(&ctrl->ball, &ctrl->walls[i])) {
                         // Game over - flash screen
-                        invertDisplay(1);
+                        // TODO: Implement flash effect for ST7789
+                        // invertDisplay(1);
                         for (volatile uint32_t delay = 0; delay < 50000; delay++) {}
-                        invertDisplay(0);
+                        // invertDisplay(0);
 
                         // Save final score and stop ball
                         ctrl->final_score = ctrl->score;
@@ -439,30 +439,28 @@ void draw_game_controller(GameController* ctrl) {
 
     // Title screen
     if (ctrl->state == GAME_STATE_TITLE) {
-        // Draw "PADDLE PANIC" centered at top
-        // Scale 2: each char is 6 pixels wide + 2 spacing = 8 pixels per char
-        // "PADDLE PANIC" = 12 chars = 96 pixels, center = (128-96)/2 = 16
-        drawText(16, 15, "PADDLE PANIC", COLOR_WHITE, 2);
+        // Draw "PADDLE PANIC" centered at top (scale 3 for 240×240 display)
+        // 12 chars × 12px = 144px, center = (240-144)/2 = 48
+        st7789_drawText(48, 50, "PADDLE PANIC", 255, 3);
 
-        // "PRESS START" at bottom
-        // Scale 1: each char is 3 pixels wide + 1 spacing = 4 pixels per char
-        // "PRESS START" = 11 chars = 44 pixels, center = (128-44)/2 = 42
-        drawText(42, 50, "PRESS START", COLOR_WHITE, 1);
+        // "PRESS START" at bottom (scale 2)
+        // 11 chars × 8px = 88px, center = (240-88)/2 = 76
+        st7789_drawText(76, 170, "PRESS START", 180, 2);
         return;
     }
 
     // Game over screen
     if (ctrl->state == GAME_STATE_GAME_OVER) {
-        // Draw "GAME OVER" centered
-        // Scale 2: "GAME OVER" = 9 chars = 72 pixels, center = (128-72)/2 = 28
-        drawText(28, 15, "GAME OVER", COLOR_WHITE, 2);
+        // Draw "GAME OVER" centered (scale 3)
+        // 9 chars × 12px = 108px, center = (240-108)/2 = 66
+        st7789_drawText(66, 70, "GAME OVER", 255, 3);
 
-        // Draw "SCORE" label
-        // Scale 1: "SCORE" = 5 chars = 20 pixels, center = (128-20)/2 = 54
-        drawText(54, 35, "SCORE", COLOR_WHITE, 1);
+        // Draw "SCORE" label (scale 2)
+        // 5 chars × 8px = 40px, center = (240-40)/2 = 100
+        st7789_drawText(100, 130, "SCORE", 180, 2);
 
-        // Draw final score centered below
-        drawNumber(SCREEN_WIDTH/2 - 10, 45, ctrl->final_score, COLOR_WHITE, 2);
+        // Draw final score centered below (scale 3)
+        st7789_drawNumber(SCREEN_WIDTH/2 - 12, 150, ctrl->final_score, 200, 3);
         return;
     }
 
@@ -485,32 +483,19 @@ void draw_game_controller(GameController* ctrl) {
         // Draw semi-transparent overlay (centered rectangle)
         Shape* pause_bg = create_rectangle(
             (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2},
-            60, 30,
+            100, 60,
             ANCHOR_CENTER,
-            1,  // Filled
-            COLOR_BLACK
+            50  // Dark gray background
         );
         draw(pause_bg);
         destroy_shape(pause_bg);
 
-        // Draw border around pause menu
-        Shape* pause_border = create_rectangle(
-            (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2},
-            60, 30,
-            ANCHOR_CENTER,
-            0,  // Not filled (outline only)
-            COLOR_WHITE
-        );
-        draw(pause_border);
-        destroy_shape(pause_border);
+        // Draw "SCORE" label (scale 2)
+        // 5 chars × 8px = 40px, center = (240-40)/2 = 100
+        st7789_drawText(100, SCREEN_HEIGHT/2 - 10, "SCORE", 255, 2);
 
-        // Draw "SCORE" label
-        // Scale 1: "SCORE" = 5 chars = 20 pixels, center = (128-20)/2 = 54
-        drawText(54, SCREEN_HEIGHT/2 - 10, "SCORE", COLOR_WHITE, 1);
-
-        // Draw score number (scale 2 for display)
-        // Center on screen - approximate offset for 1-3 digits
-        drawNumber(SCREEN_WIDTH/2 - 6, SCREEN_HEIGHT/2 + 0, ctrl->score, COLOR_WHITE, 2);
+        // Draw score number (scale 3 for display)
+        st7789_drawNumber(SCREEN_WIDTH/2 - 12, SCREEN_HEIGHT/2 + 10, ctrl->score, 200, 3);
     }
 
     // Draw countdown (if counting down)
@@ -526,10 +511,10 @@ void draw_game_controller(GameController* ctrl) {
             countdown_num = 1;
         }
 
-        // Draw large countdown number (scale 6 = 18x30 pixels)
-        // Center on screen (adjust for text size)
-        uint8_t countdown_x = SCREEN_WIDTH/2 - 9;   // 18 pixels wide / 2
-        uint8_t countdown_y = SCREEN_HEIGHT/2 - 15; // 30 pixels tall / 2
-        drawNumber(countdown_x, countdown_y, countdown_num, COLOR_WHITE, 6);
+        // Draw large countdown number (scale 6)
+        // Center on screen
+        uint16_t countdown_x = SCREEN_WIDTH/2 - 18;  // Scaled digits are wider now
+        uint16_t countdown_y = SCREEN_HEIGHT/2 - 15;
+        st7789_drawNumber(countdown_x, countdown_y, countdown_num, 255, 6);
     }
 }

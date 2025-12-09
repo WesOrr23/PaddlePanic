@@ -30,15 +30,15 @@
  * GAME CONFIGURATION
  *==========================================================================*/
 
-#define SCREEN_WIDTH  128
-#define SCREEN_HEIGHT 64
+#define SCREEN_WIDTH  240
+#define SCREEN_HEIGHT 240
 
-// Game layout constants
-#define WALL_THICKNESS 2
-#define PADDLE_LENGTH 20
-#define PADDLE_WIDTH 2
-#define PADDLE_MARGIN 3
-#define BALL_RADIUS 3
+// Game layout constants (scaled ~2× from 128×64 original)
+#define WALL_THICKNESS 4
+#define PADDLE_LENGTH 40
+#define PADDLE_WIDTH 4
+#define PADDLE_MARGIN 8
+#define BALL_RADIUS 6
 
 // Joystick configuration
 #define JOYSTICK_DEADZONE 10  // Raw ADC units (out of 4095)

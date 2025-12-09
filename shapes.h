@@ -1,27 +1,39 @@
 /*============================================================================
- * shapes.h - Created by Wes Orr (11/29/25)
+ * shapes.h - Created by Wes Orr (11/29/25), adapted for ST7789 (12/9/25)
  *============================================================================
- * Object-oriented shape abstraction layer for SH1106 graphics library
- * 
+ * Object-oriented shape abstraction layer for ST7789 graphics library
+ *
  * Provides polymorphic shape interface using function pointers for clean
  * separation between shape logic and low-level display operations.
  *
  * All shape drawing code (circles, rectangles) is implemented here,
- * built on top of the primitives in sh1106_graphics.h (pixels, lines).
+ * built on top of the primitives in st7789_driver.h
+ *
+ * CHANGES FROM SH1106 VERSION:
+ * - Uses ST7789 color display (grayscale 0-255)
+ * - Removed is_filled parameter (always draws filled shapes)
+ * - Updated for 240x240 display resolution
  *
  * USAGE:
- *     Shape* circle = create_circle((Point){64, 32}, 15, 1, COLOR_WHITE);
+ *     Shape* circle = create_circle((Point){120, 120}, 15, 255);
  *     draw(circle);
- *     set_shape_filled(circle, 0);
+ *     set_shape_color(circle, 128);
  *     draw(circle);
- *     shape_destroy(circle);
+ *     destroy_shape(circle);
  *==========================================================================*/
 
 #ifndef SHAPES_H
 #define SHAPES_H
 
 #include <stdint.h>
-#include "sh1106_graphics.h"
+
+/*============================================================================
+ * POINT STRUCTURE
+ *==========================================================================*/
+typedef struct {
+    int16_t x;
+    int16_t y;
+} Point;
 
 /*============================================================================
  * SHAPE TYPE ENUMERATION
@@ -71,8 +83,7 @@ typedef struct Shape {
     void (*draw_impl)(struct Shape* self);          // Polymorphic draw implementation
     void* shape_data;                               // Pointer to specific shape data
     ShapeType type;                                 // Shape type identifier
-    uint8_t is_filled;                              // Fill state
-    OLED_color color;                               // Color to draw shape
+    uint8_t color;                                  // Grayscale color (0-255)
 } Shape;
 
 /*============================================================================
@@ -80,34 +91,32 @@ typedef struct Shape {
  *==========================================================================*/
 
 /**
- * Create a new circle shape
+ * Create a new circle shape (always filled)
  * @param origin Center coordinates
  * @param radius Circle radius in pixels
- * @param is_filled 1 for filled circle, 0 for outline
- * @param color Color to draw the circle
+ * @param color Grayscale color (0=black, 255=white)
  * @return Pointer to new Shape, or NULL if allocation fails
  */
-Shape* create_circle(Point origin, int16_t radius, uint8_t is_filled, OLED_color color);
+Shape* create_circle(Point origin, int16_t radius, uint8_t color);
 
 /**
- * Create a new rectangle shape
+ * Create a new rectangle shape (always filled)
  * @param origin Origin point (meaning depends on anchor)
  * @param width Rectangle width in pixels
  * @param height Rectangle height in pixels
  * @param anchor Where origin is located (TOP_LEFT, BOTTOM_LEFT, CENTER)
- * @param is_filled 1 for filled rectangle, 0 for outline
- * @param color Color to draw the rectangle
+ * @param color Grayscale color (0=black, 255=white)
  * @return Pointer to new Shape, or NULL if allocation fails
  */
-Shape* create_rectangle(Point origin, int16_t width, int16_t height, 
-                       RectangleAnchor anchor, uint8_t is_filled, OLED_color color);
+Shape* create_rectangle(Point origin, int16_t width, int16_t height,
+                       RectangleAnchor anchor, uint8_t color);
 
 /*============================================================================
  * SHAPE OPERATIONS (Polymorphic Interface)
  *==========================================================================*/
 
 /**
- * Draw a shape to the display buffer
+ * Draw a shape to the display
  * Calls the appropriate draw function based on shape type
  * Uses the shape's stored color
  * @param shape Pointer to shape to draw
@@ -115,38 +124,18 @@ Shape* create_rectangle(Point origin, int16_t width, int16_t height,
 void draw(Shape* shape);
 
 /**
- * Set the fill state of a shape
- * @param shape Pointer to shape to modify
- * @param is_filled 1 for filled, 0 for outline
- */
-void set_shape_filled(Shape* shape, uint8_t is_filled);
-
-/**
- * Toggle the fill state of a shape
- * @param shape Pointer to shape to modify
- */
-void toggle_shape_filled(Shape* shape);
-
-/**
- * Get the fill state of a shape
- * @param shape Pointer to shape
- * @return 1 if filled, 0 if outline
- */
-uint8_t get_shape_filled(Shape* shape);
-
-/**
  * Set the color of a shape
  * @param shape Pointer to shape to modify
- * @param color New color
+ * @param color New grayscale color (0-255)
  */
-void set_shape_color(Shape* shape, OLED_color color);
+void set_shape_color(Shape* shape, uint8_t color);
 
 /**
  * Get the color of a shape
  * @param shape Pointer to shape
- * @return Current color
+ * @return Current grayscale color
  */
-OLED_color get_shape_color(Shape* shape);
+uint8_t get_shape_color(Shape* shape);
 
 /**
  * Get the type of a shape

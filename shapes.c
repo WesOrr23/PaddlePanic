@@ -1,14 +1,19 @@
 /*============================================================================
- * shapes.c - Created by Wes Orr (11/29/25)
+ * shapes.c - Created by Wes Orr (11/29/25), adapted for ST7789 (12/9/25)
  *============================================================================
- * Object-oriented shape abstraction layer for SH1106 graphics library
- * 
+ * Object-oriented shape abstraction layer for ST7789 graphics library
+ *
  * Implements polymorphic shape interface and all shape-specific drawing
- * code (circles, rectangles) using primitives from sh1106_graphics.c
+ * code (circles, rectangles) using primitives from st7789_driver.c
+ *
+ * CHANGES FROM SH1106 VERSION:
+ * - Uses ST7789 color display with built-in circle and rectangle functions
+ * - Removed is_filled parameter (always draws filled shapes)
+ * - Simplified drawing using st7789_drawCircle and direct pixel streaming
  *==========================================================================*/
 
 #include "shapes.h"
-#include "sh1106_graphics.h"
+#include "st7789_driver.h"
 #include <stdlib.h>
 #include <stddef.h>
 
@@ -18,102 +23,6 @@
 #ifndef _swap_int16_t
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #endif
-
-/*============================================================================
- * CIRCLE DRAWING PRIMITIVES
- *==========================================================================*/
-
-static void drawCircle(Point center, int16_t radius, OLED_color color) {
-    int16_t centerX = center.x;
-    int16_t centerY = center.y;
-    
-    int16_t decisionParam = 1 - radius;
-    int16_t deltaDecisionX = 1;
-    int16_t deltaDecisionY = -2 * radius;
-    int16_t x = 0;
-    int16_t y = radius;
-    
-    drawPixel((Point){centerX, centerY + radius}, color);
-    drawPixel((Point){centerX, centerY - radius}, color);
-    drawPixel((Point){centerX + radius, centerY}, color);
-    drawPixel((Point){centerX - radius, centerY}, color);
-    
-    while (x < y) {
-        if (decisionParam >= 0) {
-            y--;
-            deltaDecisionY += 2;
-            decisionParam += deltaDecisionY;
-        }
-        x++;
-        deltaDecisionX += 2;
-        decisionParam += deltaDecisionX;
-        
-        drawPixel((Point){centerX + x, centerY + y}, color);
-        drawPixel((Point){centerX - x, centerY + y}, color);
-        drawPixel((Point){centerX + x, centerY - y}, color);
-        drawPixel((Point){centerX - x, centerY - y}, color);
-        drawPixel((Point){centerX + y, centerY + x}, color);
-        drawPixel((Point){centerX - y, centerY + x}, color);
-        drawPixel((Point){centerX + y, centerY - x}, color);
-        drawPixel((Point){centerX - y, centerY - x}, color);
-    }
-}
-
-static void drawFilledCircle(Point center, int16_t radius, OLED_color color) {
-    int16_t centerX = center.x;
-    int16_t centerY = center.y;
-    
-    int16_t top = centerY - radius;
-    int16_t bottom = centerY + radius;
-    if (top < 0) top = 0;
-    if (bottom >= HEIGHT) bottom = HEIGHT - 1;
-    drawLine((Point){centerX, top}, (Point){centerX, bottom}, color);
-    
-    int16_t decisionParam = 1 - radius;
-    int16_t deltaDecisionX = 1;
-    int16_t deltaDecisionY = -2 * radius;
-    int16_t x = 0;
-    int16_t y = radius;
-    int16_t prevX = x;
-    int16_t prevY = y;
-    int16_t delta = 1;
-    
-    while (x < y) {
-        if (decisionParam >= 0) {
-            y--;
-            deltaDecisionY += 2;
-            decisionParam += deltaDecisionY;
-        }
-        x++;
-        deltaDecisionX += 2;
-        decisionParam += deltaDecisionX;
-        
-        int16_t lineTop = centerY - y;
-        int16_t lineBottom = centerY + y + delta;
-        if (lineTop < 0) lineTop = 0;
-        if (lineBottom >= HEIGHT) lineBottom = HEIGHT - 1;
-        
-        if (x < (y + 1)) {
-            if (centerX + x < WIDTH)
-                drawLine((Point){centerX + x, lineTop}, (Point){centerX + x, lineBottom}, color);
-            if (centerX - x >= 0)
-                drawLine((Point){centerX - x, lineTop}, (Point){centerX - x, lineBottom}, color);
-        }
-        if (y != prevY) {
-            int16_t prevLineTop = centerY - prevX;
-            int16_t prevLineBottom = centerY + prevX + delta;
-            if (prevLineTop < 0) prevLineTop = 0;
-            if (prevLineBottom >= HEIGHT) prevLineBottom = HEIGHT - 1;
-            
-            if (centerX + prevY < WIDTH)
-                drawLine((Point){centerX + prevY, prevLineTop}, (Point){centerX + prevY, prevLineBottom}, color);
-            if (centerX - prevY >= 0)
-                drawLine((Point){centerX - prevY, prevLineTop}, (Point){centerX - prevY, prevLineBottom}, color);
-            prevY = y;
-        }
-        prevX = x;
-    }
-}
 
 /*============================================================================
  * RECTANGLE DRAWING PRIMITIVES
@@ -126,7 +35,7 @@ static void drawFilledCircle(Point center, int16_t radius, OLED_color color) {
 static void calculate_rect_corners(Point origin, int16_t width, int16_t height,
                                    RectangleAnchor anchor, Point* tl, Point* br) {
     int16_t temp_tl_x, temp_tl_y, temp_br_x, temp_br_y;
-    
+
     switch (anchor) {
         case ANCHOR_TOP_LEFT:
             temp_tl_x = origin.x;
@@ -134,56 +43,66 @@ static void calculate_rect_corners(Point origin, int16_t width, int16_t height,
             temp_br_x = origin.x + width;
             temp_br_y = origin.y + height;
             break;
-            
+
         case ANCHOR_BOTTOM_LEFT:
             temp_tl_x = origin.x;
             temp_tl_y = origin.y - height;
             temp_br_x = origin.x + width;
             temp_br_y = origin.y;
             break;
-            
+
         case ANCHOR_CENTER:
             temp_tl_x = origin.x - width / 2;
             temp_tl_y = origin.y - height / 2;
             temp_br_x = origin.x + width / 2;
             temp_br_y = origin.y + height / 2;
             break;
+
+        default:
+            // Fallback to center anchor behavior if invalid anchor value
+            temp_tl_x = origin.x - width / 2;
+            temp_tl_y = origin.y - height / 2;
+            temp_br_x = origin.x + width / 2;
+            temp_br_y = origin.y + height / 2;
+            break;
     }
-    
+
     // Clamp to screen bounds
-    // Note: We don't prevent negative values, just clamp when assigning to uint8_t
-    tl->x = (temp_tl_x < 0) ? 0 : ((temp_tl_x >= WIDTH) ? WIDTH - 1 : temp_tl_x);
-    tl->y = (temp_tl_y < 0) ? 0 : ((temp_tl_y >= HEIGHT) ? HEIGHT - 1 : temp_tl_y);
-    br->x = (temp_br_x < 0) ? 0 : ((temp_br_x >= WIDTH) ? WIDTH - 1 : temp_br_x);
-    br->y = (temp_br_y < 0) ? 0 : ((temp_br_y >= HEIGHT) ? HEIGHT - 1 : temp_br_y);
+    tl->x = (temp_tl_x < 0) ? 0 : ((temp_tl_x >= ST7789_WIDTH) ? ST7789_WIDTH - 1 : temp_tl_x);
+    tl->y = (temp_tl_y < 0) ? 0 : ((temp_tl_y >= ST7789_HEIGHT) ? ST7789_HEIGHT - 1 : temp_tl_y);
+    br->x = (temp_br_x < 0) ? 0 : ((temp_br_x >= ST7789_WIDTH) ? ST7789_WIDTH - 1 : temp_br_x);
+    br->y = (temp_br_y < 0) ? 0 : ((temp_br_y >= ST7789_HEIGHT) ? ST7789_HEIGHT - 1 : temp_br_y);
 }
 
-static void drawRect(Point origin, int16_t width, int16_t height, 
-                     RectangleAnchor anchor, OLED_color color) {
+/**
+ * Draw filled rectangle using ST7789 primitives
+ */
+static void drawFilledRect(Point origin, int16_t width, int16_t height,
+                          RectangleAnchor anchor, uint8_t gray) {
     Point tl, br;
     calculate_rect_corners(origin, width, height, anchor, &tl, &br);
-    
-    // Draw outline - br is exclusive, so subtract 1 for actual edge
-    drawLine(tl, (Point){br.x - 1, tl.y}, color);           // Top edge
-    drawLine((Point){br.x - 1, tl.y}, (Point){br.x - 1, br.y - 1}, color);  // Right edge
-    drawLine((Point){br.x - 1, br.y - 1}, (Point){tl.x, br.y - 1}, color);  // Bottom edge
-    drawLine((Point){tl.x, br.y - 1}, tl, color);           // Left edge
-}
 
-static void writeFilledRect(Point origin, int16_t width, int16_t height,
-                           RectangleAnchor anchor, OLED_color color) {
-    Point tl, br;
-    calculate_rect_corners(origin, width, height, anchor, &tl, &br);
-    
     int16_t x1 = tl.x, y1 = tl.y;
     int16_t x2 = br.x, y2 = br.y;
-    
+
     if (x2 < x1) _swap_int16_t(x1, x2);
     if (y2 < y1) _swap_int16_t(y1, y2);
-    
-    // Fill rectangle - br is exclusive, so use < instead of <=
-    for (; x1 < x2; x1++) {
-        drawLine((Point){x1, y1}, (Point){x1, y2 - 1}, color);
+
+    // Draw rectangle row by row
+    int16_t rect_width = x2 - x1;
+    int16_t rect_height = y2 - y1;
+
+    if (rect_width <= 0 || rect_height <= 0) return;
+
+    ST7789_Color color = st7789_grayscale(gray);
+
+    for (int16_t row = y1; row < y2; row++) {
+        st7789_setAddrWindow(x1, row, rect_width, 1);
+        st7789_beginData();
+        for (int16_t col = 0; col < rect_width; col++) {
+            st7789_write16(color);
+        }
+        st7789_endData();
     }
 }
 
@@ -193,76 +112,69 @@ static void writeFilledRect(Point origin, int16_t width, int16_t height,
 
 static void draw_circle(Shape* self) {
     if (self == NULL || self->shape_data == NULL) return;
-    
+
     CircleData* data = (CircleData*)self->shape_data;
-    
-    if (self->is_filled) {
-        drawFilledCircle(self->origin, data->radius, self->color);
-    } else {
-        drawCircle(self->origin, data->radius, self->color);
-    }
+
+    // Always draw filled circle
+    st7789_drawCircle(self->origin.x, self->origin.y, data->radius,
+                     st7789_grayscale(self->color), 1);
 }
 
 static void draw_rectangle(Shape* self) {
     if (self == NULL || self->shape_data == NULL) return;
-    
+
     RectangleData* data = (RectangleData*)self->shape_data;
-    
-    if (self->is_filled) {
-        writeFilledRect(self->origin, data->width, data->height, data->anchor, self->color);
-    } else {
-        drawRect(self->origin, data->width, data->height, data->anchor, self->color);
-    }
+
+    // Always draw filled rectangle
+    drawFilledRect(self->origin, data->width, data->height, data->anchor, self->color);
 }
 
 /*============================================================================
  * SHAPE CONSTRUCTORS
  *==========================================================================*/
 
-Shape* create_circle(Point origin, int16_t radius, uint8_t is_filled, OLED_color color) {
+Shape* create_circle(Point origin, int16_t radius, uint8_t color) {
     Shape* shape = (Shape*)malloc(sizeof(Shape));
     if (shape == NULL) return NULL;
-    
+
     CircleData* data = (CircleData*)malloc(sizeof(CircleData));
     if (data == NULL) {
         free(shape);
         return NULL;
     }
-    
+
     data->radius = radius;
-    
+
     shape->origin = origin;
     shape->draw_impl = draw_circle;
     shape->shape_data = data;
     shape->type = SHAPE_CIRCLE;
-    shape->is_filled = is_filled;
     shape->color = color;
-    
+
     return shape;
 }
 
 Shape* create_rectangle(Point origin, int16_t width, int16_t height,
-                       RectangleAnchor anchor, uint8_t is_filled, OLED_color color) {
+                       RectangleAnchor anchor, uint8_t color) {
     Shape* shape = (Shape*)malloc(sizeof(Shape));
     if (shape == NULL) return NULL;
-    
+
     RectangleData* data = (RectangleData*)malloc(sizeof(RectangleData));
     if (data == NULL) {
         free(shape);
         return NULL;
     }
-    
+
     data->anchor = anchor;
     data->width = width;
     data->height = height;
-    
+
     shape->origin = origin;
     shape->draw_impl = draw_rectangle;
     shape->shape_data = data;
     shape->type = SHAPE_RECTANGLE;
-    shape->is_filled = is_filled;
     shape->color = color;
-    
+
     return shape;
 }
 
@@ -276,30 +188,14 @@ void draw(Shape* shape) {
     }
 }
 
-void set_shape_filled(Shape* shape, uint8_t is_filled) {
-    if (shape != NULL) {
-        shape->is_filled = is_filled;
-    }
-}
-
-void toggle_shape_filled(Shape* shape) {
-    if (shape != NULL) {
-        shape->is_filled = !shape->is_filled;
-    }
-}
-
-uint8_t get_shape_filled(Shape* shape) {
-    return (shape != NULL) ? shape->is_filled : 0;
-}
-
-void set_shape_color(Shape* shape, OLED_color color) {
+void set_shape_color(Shape* shape, uint8_t color) {
     if (shape != NULL) {
         shape->color = color;
     }
 }
 
-OLED_color get_shape_color(Shape* shape) {
-    return (shape != NULL) ? shape->color : COLOR_BLACK;
+uint8_t get_shape_color(Shape* shape) {
+    return (shape != NULL) ? shape->color : 0;
 }
 
 ShapeType get_shape_type(Shape* shape) {

@@ -1,16 +1,26 @@
 /*
- * main.c - PaddlePanic
+ * main.c - PaddlePanic Game (ST7789 240x240 version)
  *
  * Created: 10/27/2024 9:03:11 PM
  * Author: Wes Orr
+ * Ported to ST7789: 12/9/2025
  */
 #include <xc.h>
-#include "sh1106_graphics.h"
+#include "st7789_driver.h"
 #include "game_controller.h"
 
+// Initialize SPI (from sh1106_graphics.c)
+extern void initSPI(void);
+
 int main(void) {
-    // Initialize display (includes SPI setup)
-    initScreen();
+    // Initialize SPI peripheral
+    initSPI();
+
+    // Initialize ST7789 display
+    st7789_init();
+
+    // Clear screen once at startup
+    st7789_fillScreen(st7789_grayscale(0));
 
     // Initialize game controller (creates all objects and input controller)
     GameController game;
@@ -22,9 +32,10 @@ int main(void) {
         update_game_controller(&game);
 
         // Render
-        clearDisplay();
+        // Note: ST7789 draws directly, no buffer clear/refresh needed
+        // We'll need differential rendering for smooth gameplay, but for now
+        // the game will render with visible updates (the delay effect you love!)
         draw_game_controller(&game);
-        refreshDisplay();
     }
 
     // Cleanup (never reached)

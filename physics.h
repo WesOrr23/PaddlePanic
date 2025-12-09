@@ -59,29 +59,29 @@ typedef struct {
 
 /**
  * Circle shape parameters for physics object creation
+ * Updated for ST7789 - always filled, grayscale color
  */
 typedef struct {
     int16_t radius;
-    uint8_t is_filled;
-    OLED_color color;
+    uint8_t color;  // Grayscale 0-255
 } CircleParams;
 
 /**
  * Rectangle shape parameters for physics object creation
+ * Updated for ST7789 - always filled, grayscale color
  */
 typedef struct {
     int16_t width;
     int16_t height;
     RectangleAnchor anchor;
-    uint8_t is_filled;
-    OLED_color color;
+    uint8_t color;  // Grayscale 0-255
 } RectangleParams;
 
 /**
  * Union holding either circle or rectangle parameters
  * Use designated initializers to specify which type:
- *   (ShapeParams){.circle = {5, 1, COLOR_WHITE}}
- *   (ShapeParams){.rect = {10, 20, ANCHOR_CENTER, 1, COLOR_WHITE}}
+ *   (ShapeParams){.circle = {5, 255}}        // Circle: radius 5, white
+ *   (ShapeParams){.rect = {10, 20, ANCHOR_CENTER, 255}}  // Rectangle: 10×20, white
  */
 typedef union {
     CircleParams circle;
