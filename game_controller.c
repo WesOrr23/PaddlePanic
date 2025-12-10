@@ -6,6 +6,7 @@
 
 #include "game_controller.h"
 #include "shapes.h"
+#include "st7789_graphics.h"
 #include "text.h"
 #include <stddef.h>
 
@@ -458,6 +459,44 @@ void update_game_controller(GameController* ctrl) {
 }
 
 /*============================================================================
+ * STRIP RENDERING HELPERS (for paddle optimization)
+ *==========================================================================*/
+
+/**
+ * Draw a filled vertical strip (for horizontal paddle movement)
+ * @param x Left edge X coordinate
+ * @param y Top edge Y coordinate
+ * @param width Strip width in pixels
+ * @param height Strip height in pixels
+ * @param color Grayscale color (0-255)
+ */
+static void draw_vertical_strip(int16_t x, int16_t y, int16_t width, int16_t height, uint8_t color) {
+    if (width <= 0 || height <= 0) return;
+
+    ST7789_Color st_color = st7789_grayscale(color);
+    st7789_setAddrWindow(x, y, width, height);
+
+    st7789_beginData();
+    for (int32_t i = 0; i < (int32_t)width * height; i++) {
+        st7789_write16(st_color);
+    }
+    st7789_endData();
+}
+
+/**
+ * Draw a filled horizontal strip (for vertical paddle movement)
+ * @param x Left edge X coordinate
+ * @param y Top edge Y coordinate
+ * @param width Strip width in pixels
+ * @param height Strip height in pixels
+ * @param color Grayscale color (0-255)
+ */
+static void draw_horizontal_strip(int16_t x, int16_t y, int16_t width, int16_t height, uint8_t color) {
+    // Same implementation as vertical strip (just different conceptual use)
+    draw_vertical_strip(x, y, width, height, color);
+}
+
+/*============================================================================
  * GAME CONTROLLER DRAWING
  *==========================================================================*/
 
@@ -516,42 +555,42 @@ void draw_game_controller(GameController* ctrl) {
             int16_t dx = ctrl->paddles[i].position.x - ctrl->paddles[i].prev_position.x;
             int16_t dy = ctrl->paddles[i].position.y - ctrl->paddles[i].prev_position.y;
 
-            // Get paddle dimensions via accessor functions
-            int16_t paddle_width = get_rectangle_width(ctrl->paddles[i].visual);
-            int16_t paddle_height = get_rectangle_height(ctrl->paddles[i].visual);
-            uint8_t color = get_shape_color(ctrl->paddles[i].visual);
+            RectangleData* paddle = (RectangleData*)ctrl->paddles[i].visual->shape_data;
+            uint8_t color = ctrl->paddles[i].visual->color;
 
             // Horizontal paddles (0=top, 1=bottom) move along X axis
             if (i < 2 && dy == 0 && dx != 0) {
                 // Calculate paddle bounds (centered)
-                int16_t old_left = ctrl->paddles[i].prev_position.x - paddle_width / 2;
-                int16_t new_left = ctrl->paddles[i].position.x - paddle_width / 2;
+                int16_t old_left = ctrl->paddles[i].prev_position.x - paddle->width / 2;
+                int16_t old_top = ctrl->paddles[i].prev_position.y - paddle->height / 2;
+                int16_t new_left = ctrl->paddles[i].position.x - paddle->width / 2;
 
                 if (dx > 0) {
                     // Moving right: erase left strip, draw right strip
-                    draw_rectangle_vertical_strip(ctrl->paddles[i].visual, old_left, dx, 0);
-                    draw_rectangle_vertical_strip(ctrl->paddles[i].visual, new_left + paddle_width - dx, dx, color);
+                    draw_vertical_strip(old_left, old_top, dx, paddle->height, 0);
+                    draw_vertical_strip(new_left + paddle->width - dx, old_top, dx, paddle->height, color);
                 } else {
                     // Moving left: erase right strip, draw left strip
-                    draw_rectangle_vertical_strip(ctrl->paddles[i].visual, old_left + paddle_width + dx, -dx, 0);
-                    draw_rectangle_vertical_strip(ctrl->paddles[i].visual, new_left, -dx, color);
+                    draw_vertical_strip(old_left + paddle->width + dx, old_top, -dx, paddle->height, 0);
+                    draw_vertical_strip(new_left, old_top, -dx, paddle->height, color);
                 }
                 ctrl->paddles[i].visual->origin = ctrl->paddles[i].position;
             }
             // Vertical paddles (2=left, 3=right) move along Y axis
             else if (i >= 2 && dx == 0 && dy != 0) {
                 // Calculate paddle bounds (centered)
-                int16_t old_top = ctrl->paddles[i].prev_position.y - paddle_height / 2;
-                int16_t new_top = ctrl->paddles[i].position.y - paddle_height / 2;
+                int16_t old_left = ctrl->paddles[i].prev_position.x - paddle->width / 2;
+                int16_t old_top = ctrl->paddles[i].prev_position.y - paddle->height / 2;
+                int16_t new_top = ctrl->paddles[i].position.y - paddle->height / 2;
 
                 if (dy > 0) {
                     // Moving down: erase top strip, draw bottom strip
-                    draw_rectangle_horizontal_strip(ctrl->paddles[i].visual, old_top, dy, 0);
-                    draw_rectangle_horizontal_strip(ctrl->paddles[i].visual, new_top + paddle_height - dy, dy, color);
+                    draw_horizontal_strip(old_left, old_top, paddle->width, dy, 0);
+                    draw_horizontal_strip(old_left, new_top + paddle->height - dy, paddle->width, dy, color);
                 } else {
                     // Moving up: erase bottom strip, draw top strip
-                    draw_rectangle_horizontal_strip(ctrl->paddles[i].visual, old_top + paddle_height + dy, -dy, 0);
-                    draw_rectangle_horizontal_strip(ctrl->paddles[i].visual, new_top, -dy, color);
+                    draw_horizontal_strip(old_left, old_top + paddle->height + dy, paddle->width, -dy, 0);
+                    draw_horizontal_strip(old_left, new_top, paddle->width, -dy, color);
                 }
                 ctrl->paddles[i].visual->origin = ctrl->paddles[i].position;
             }
