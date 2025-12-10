@@ -105,6 +105,7 @@ typedef void (*CollisionCallback)(PhysicsObject* self, PhysicsObject* other);
  */
 struct PhysicsObject {
     Point position;                 // Current position (screen coordinates)
+    Point prev_position;            // Previous position (for differential rendering)
     Vector2D velocity;              // Velocity in pixels per frame
     Vector2D acceleration;          // Acceleration (reserved for future use)
     Shape* visual;                  // Visual representation (shape to draw)

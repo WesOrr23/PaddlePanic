@@ -41,7 +41,7 @@ int main(void) {
         // Without this, physics runs much faster than display can update, causing
         // collision detection to trigger before user sees the ball reach the wall
         // Adjust this delay to tune game speed (smaller = faster, larger = slower)
-        for (volatile uint32_t i = 0; i < 5000; i++) {}
+        for (volatile uint32_t i = 0; i < 500; i++) {}
     }
 
     // Cleanup (never reached)

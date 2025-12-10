@@ -305,16 +305,7 @@ void update_game_controller(GameController* ctrl) {
         set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Left paddle
         set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Right paddle
 
-        // Erase and update paddles that are moving
-        if (ctrl->paddle_current_velocity_x != 0) {
-            erase(ctrl->paddles[0].visual);
-            erase(ctrl->paddles[1].visual);
-        }
-        if (ctrl->paddle_current_velocity_y != 0) {
-            erase(ctrl->paddles[2].visual);
-            erase(ctrl->paddles[3].visual);
-        }
-
+        // Update paddle positions (differential rendering handles erase/draw)
         update(&ctrl->paddles[0]);
         update(&ctrl->paddles[1]);
         update(&ctrl->paddles[2]);
@@ -368,10 +359,7 @@ void update_game_controller(GameController* ctrl) {
                 set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
                 ctrl->state = GAME_STATE_PAUSED;
             } else {
-                // Erase old ball position before updating
-                erase(ctrl->ball.visual);
-
-                // Update ball physics (applies velocity to position)
+                // Update ball physics (differential rendering handles erase/draw)
                 update(&ctrl->ball);
 
                 // Check collisions with paddles first - increment score
@@ -504,18 +492,41 @@ void draw_game_controller(GameController* ctrl) {
     }
 
     // Draw game objects (for all gameplay states)
-    // Draw walls (static - never erase)
+    // DIFFERENTIAL RENDERING: Only redraw objects whose position changed
+
+    // Walls - check if position changed (should be static, but handles collision bounce)
     for (int i = 0; i < 4; i++) {
-        draw(ctrl->walls[i].visual);
+        if (ctrl->walls[i].position.x != ctrl->walls[i].prev_position.x ||
+            ctrl->walls[i].position.y != ctrl->walls[i].prev_position.y) {
+            // Erase at old position (visual still at prev_position)
+            erase(ctrl->walls[i].visual);
+            // Update visual to new position
+            ctrl->walls[i].visual->origin = ctrl->walls[i].position;
+            draw(ctrl->walls[i].visual);
+            // Remember where we drew it
+            ctrl->walls[i].prev_position = ctrl->walls[i].position;
+        }
     }
 
-    // Draw paddles (always draw, erase happens before update if moving)
+    // Paddles - only redraw if position changed
     for (int i = 0; i < 4; i++) {
-        draw(ctrl->paddles[i].visual);
+        if (ctrl->paddles[i].position.x != ctrl->paddles[i].prev_position.x ||
+            ctrl->paddles[i].position.y != ctrl->paddles[i].prev_position.y) {
+            erase(ctrl->paddles[i].visual);
+            ctrl->paddles[i].visual->origin = ctrl->paddles[i].position;
+            draw(ctrl->paddles[i].visual);
+            ctrl->paddles[i].prev_position = ctrl->paddles[i].position;
+        }
     }
 
-    // Draw ball (always draw, erase happens before update)
-    draw(ctrl->ball.visual);
+    // Ball - only redraw if position changed
+    if (ctrl->ball.position.x != ctrl->ball.prev_position.x ||
+        ctrl->ball.position.y != ctrl->ball.prev_position.y) {
+        erase(ctrl->ball.visual);
+        ctrl->ball.visual->origin = ctrl->ball.position;
+        draw(ctrl->ball.visual);
+        ctrl->ball.prev_position = ctrl->ball.position;
+    }
 
     // Draw pause menu (if paused)
     if (ctrl->state == GAME_STATE_PAUSED) {

@@ -41,6 +41,7 @@ void init_physics(PhysicsObject* obj, Point position, Vector2D velocity,
 
     // Initialize physics object
     obj->position = position;
+    obj->prev_position = (Point){-1, -1};  // Force first draw (position will differ)
     obj->velocity = velocity;
     obj->acceleration.x = 0;
     obj->acceleration.y = 0;
@@ -63,14 +64,9 @@ void destroy(PhysicsObject* obj) {
 void move(PhysicsObject* obj, Vector2D delta) {
     if (obj == NULL) return;
 
-    // Update position
+    // Update position (visual->origin updated by render loop for differential rendering)
     obj->position.x += delta.x;
     obj->position.y += delta.y;
-
-    // Sync visual shape position
-    if (obj->visual != NULL) {
-        obj->visual->origin = obj->position;  // Direct access!
-    }
 }
 
 void update(PhysicsObject* obj) {
@@ -116,7 +112,7 @@ static uint8_t check_circle_rect_collision(PhysicsObject* circle_obj, PhysicsObj
     
     // Calculate actual rectangle corners based on anchor
     Point top_left, bottom_right;
-    Point rect_origin = rect_obj->visual->origin;  // Direct access!
+    Point rect_origin = rect_obj->position;  // Use physics position
     
     switch (rect->anchor) {
         case ANCHOR_TOP_LEFT:
@@ -139,7 +135,7 @@ static uint8_t check_circle_rect_collision(PhysicsObject* circle_obj, PhysicsObj
     }
     
     // Find closest point on rectangle to circle center
-    Point circle_center = circle_obj->visual->origin;  // Direct access!
+    Point circle_center = circle_obj->position;  // Use physics position
     int16_t closest_x = circle_center.x;
     int16_t closest_y = circle_center.y;
     
@@ -165,9 +161,9 @@ static uint8_t check_circle_rect_collision(PhysicsObject* circle_obj, PhysicsObj
 static uint8_t check_rect_rect_collision(PhysicsObject* objA, PhysicsObject* objB) {
     RectangleData* rectA = (RectangleData*)(objA->visual->shape_data);
     RectangleData* rectB = (RectangleData*)(objB->visual->shape_data);
-    
-    Point origin1 = objA->visual->origin;
-    Point origin2 = objB->visual->origin;
+
+    Point origin1 = objA->position;  // Use physics position
+    Point origin2 = objB->position;  // Use physics position
     
     // Calculate actual corners for both rectangles
     Point top_leftA, bottom_rightA, top_leftB, bottom_rightB;
@@ -268,9 +264,7 @@ uint8_t check_collision(PhysicsObject* objA, PhysicsObject* objB) {
 void set_physics_position(PhysicsObject* obj, Point new_position) {
     if (obj != NULL) {
         obj->position = new_position;
-        if (obj->visual != NULL) {
-            obj->visual->origin = new_position;  // Direct access!
-        }
+        // visual->origin updated by render loop (differential rendering will detect position change)
     }
 }
 
