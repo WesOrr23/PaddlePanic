@@ -305,7 +305,16 @@ void update_game_controller(GameController* ctrl) {
         set_physics_velocity(&ctrl->paddles[2], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Left paddle
         set_physics_velocity(&ctrl->paddles[3], (Vector2D){0, ctrl->paddle_current_velocity_y});  // Right paddle
 
-        // Update paddle positions (apply velocity)
+        // Erase and update paddles that are moving
+        if (ctrl->paddle_current_velocity_x != 0) {
+            erase(ctrl->paddles[0].visual);
+            erase(ctrl->paddles[1].visual);
+        }
+        if (ctrl->paddle_current_velocity_y != 0) {
+            erase(ctrl->paddles[2].visual);
+            erase(ctrl->paddles[3].visual);
+        }
+
         update(&ctrl->paddles[0]);
         update(&ctrl->paddles[1]);
         update(&ctrl->paddles[2]);
@@ -327,6 +336,10 @@ void update_game_controller(GameController* ctrl) {
         case GAME_STATE_TITLE:
             // Title screen - wait for button press to start game
             if (button1_pressed) {
+                // Erase title screen text
+                st7789_eraseText(48, 50, "PADDLE PANIC", 3);
+                st7789_eraseText(76, 170, "PRESS START", 2);
+
                 // Reset game state
                 ctrl->score = 0;
                 set_physics_position(&ctrl->ball, (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2});
@@ -355,6 +368,9 @@ void update_game_controller(GameController* ctrl) {
                 set_physics_velocity(&ctrl->ball, (Vector2D){0, 0});
                 ctrl->state = GAME_STATE_PAUSED;
             } else {
+                // Erase old ball position before updating
+                erase(ctrl->ball.visual);
+
                 // Update ball physics (applies velocity to position)
                 update(&ctrl->ball);
 
@@ -373,11 +389,16 @@ void update_game_controller(GameController* ctrl) {
                 // Check collisions with walls - game over
                 for (int i = 0; i < 4; i++) {
                     if (check_collision(&ctrl->ball, &ctrl->walls[i])) {
-                        // Game over - flash screen
-                        // TODO: Implement flash effect for ST7789
-                        // invertDisplay(1);
-                        for (volatile uint32_t delay = 0; delay < 50000; delay++) {}
-                        // invertDisplay(0);
+                        // Game over - erase game elements
+                        // Erase all game objects
+                        erase(ctrl->ball.visual);
+                        for (int j = 0; j < 4; j++) {
+                            erase(ctrl->paddles[j].visual);
+                            erase(ctrl->walls[j].visual);
+                        }
+                        // Erase score text (we'll redraw with final score)
+                        st7789_eraseText(100, SCREEN_HEIGHT/2 - 10, "SCORE", 2);
+                        st7789_eraseNumber(SCREEN_WIDTH/2 - 12, SCREEN_HEIGHT/2 + 10, ctrl->score, 3);
 
                         // Save final score and stop ball
                         ctrl->final_score = ctrl->score;
@@ -392,6 +413,19 @@ void update_game_controller(GameController* ctrl) {
         case GAME_STATE_PAUSED:
             // Game is paused - wait for button press to resume
             if (button1_pressed) {
+                // Erase pause menu background and text
+                Shape* pause_bg = create_rectangle(
+                    (Point){SCREEN_WIDTH/2, SCREEN_HEIGHT/2},
+                    100, 60,
+                    ANCHOR_CENTER,
+                    50  // Match the pause menu background
+                );
+                erase(pause_bg);
+                destroy_shape(pause_bg);  // Will erase again but that's ok
+
+                st7789_eraseText(100, SCREEN_HEIGHT/2 - 10, "SCORE", 2);
+                st7789_eraseNumber(SCREEN_WIDTH/2 - 12, SCREEN_HEIGHT/2 + 10, ctrl->score, 3);
+
                 // Start countdown (3 seconds at ~12 fps = 36 frames)
                 ctrl->countdown_timer = 36;
                 ctrl->state = GAME_STATE_COUNTDOWN;
@@ -414,6 +448,11 @@ void update_game_controller(GameController* ctrl) {
         case GAME_STATE_GAME_OVER:
             // Game over - wait for button press to return to title
             if (button1_pressed) {
+                // Erase game over screen text
+                st7789_eraseText(66, 70, "GAME OVER", 3);
+                st7789_eraseText(100, 130, "SCORE", 2);
+                st7789_eraseNumber(SCREEN_WIDTH/2 - 12, 150, ctrl->final_score, 3);
+
                 ctrl->state = GAME_STATE_TITLE;
             }
             break;
@@ -465,17 +504,17 @@ void draw_game_controller(GameController* ctrl) {
     }
 
     // Draw game objects (for all gameplay states)
-    // Draw walls
+    // Draw walls (static - never erase)
     for (int i = 0; i < 4; i++) {
         draw(ctrl->walls[i].visual);
     }
 
-    // Draw paddles
+    // Draw paddles (always draw, erase happens before update if moving)
     for (int i = 0; i < 4; i++) {
         draw(ctrl->paddles[i].visual);
     }
 
-    // Draw ball
+    // Draw ball (always draw, erase happens before update)
     draw(ctrl->ball.visual);
 
     // Draw pause menu (if paused)

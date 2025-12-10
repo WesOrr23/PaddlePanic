@@ -36,6 +36,12 @@ int main(void) {
         // We'll need differential rendering for smooth gameplay, but for now
         // the game will render with visible updates (the delay effect you love!)
         draw_game_controller(&game);
+
+        // Frame rate limiter - slow down game loop to keep physics and rendering in sync
+        // Without this, physics runs much faster than display can update, causing
+        // collision detection to trigger before user sees the ball reach the wall
+        // Adjust this delay to tune game speed (smaller = faster, larger = slower)
+        for (volatile uint32_t i = 0; i < 5000; i++) {}
     }
 
     // Cleanup (never reached)

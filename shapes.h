@@ -124,6 +124,15 @@ Shape* create_rectangle(Point origin, int16_t width, int16_t height,
 void draw(Shape* shape);
 
 /**
+ * Erase a shape by drawing it in black
+ * Note: This doesn't restore what was behind the shape,
+ * but clears the pixels to black. Will be improved with
+ * differential rendering and layering in the future.
+ * @param shape Pointer to shape to erase
+ */
+void erase(Shape* shape);
+
+/**
  * Set the color of a shape
  * @param shape Pointer to shape to modify
  * @param color New grayscale color (0-255)

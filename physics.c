@@ -62,11 +62,11 @@ void destroy(PhysicsObject* obj) {
 
 void move(PhysicsObject* obj, Vector2D delta) {
     if (obj == NULL) return;
-    
+
     // Update position
     obj->position.x += delta.x;
     obj->position.y += delta.y;
-    
+
     // Sync visual shape position
     if (obj->visual != NULL) {
         obj->visual->origin = obj->position;  // Direct access!
@@ -95,13 +95,15 @@ void update(PhysicsObject* obj) {
 static uint8_t check_circle_circle_collision(PhysicsObject* objA, PhysicsObject* objB) {
     CircleData* circleA = (CircleData*)(objA->visual->shape_data);
     CircleData* circleB = (CircleData*)(objB->visual->shape_data);
-    
+
     int16_t dx = objA->position.x - objB->position.x;
     int16_t dy = objA->position.y - objB->position.y;
-    int16_t distance_squared = dx * dx + dy * dy;
+    // Use int32_t to prevent overflow on 240×240 display
+    // Max distance: 240² = 57,600 which overflows int16_t (max 32,767)
+    int32_t distance_squared = (int32_t)dx * dx + (int32_t)dy * dy;
     int16_t radius_sum = circleA->radius + circleB->radius;
-    int16_t radius_sum_squared = radius_sum * radius_sum;
-    
+    int32_t radius_sum_squared = (int32_t)radius_sum * radius_sum;
+
     return (distance_squared <= radius_sum_squared);
 }
 
@@ -150,9 +152,11 @@ static uint8_t check_circle_rect_collision(PhysicsObject* circle_obj, PhysicsObj
     // Check if closest point is within circle radius
     int16_t dx = circle_center.x - closest_x;
     int16_t dy = circle_center.y - closest_y;
-    int16_t distance_squared = dx * dx + dy * dy;
-    
-    return (distance_squared <= (circle->radius * circle->radius));
+    // Use int32_t to prevent overflow on 240×240 display
+    int32_t distance_squared = (int32_t)dx * dx + (int32_t)dy * dy;
+    int32_t radius_squared = (int32_t)circle->radius * circle->radius;
+
+    return (distance_squared <= radius_squared);
 }
 
 /**
@@ -253,7 +257,7 @@ uint8_t check_collision(PhysicsObject* objA, PhysicsObject* objB) {
             objB->on_collision(objB, objA);
         }
     }
-    
+
     return collision;
 }
 

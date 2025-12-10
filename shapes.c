@@ -188,6 +188,15 @@ void draw(Shape* shape) {
     }
 }
 
+void erase(Shape* shape) {
+    if (shape != NULL && shape->draw_impl != NULL) {
+        uint8_t old_color = shape->color;
+        shape->color = 0;  // Black
+        shape->draw_impl(shape);  // Draw in black
+        shape->color = old_color;  // Restore original color
+    }
+}
+
 void set_shape_color(Shape* shape, uint8_t color) {
     if (shape != NULL) {
         shape->color = color;
@@ -204,6 +213,8 @@ ShapeType get_shape_type(Shape* shape) {
 
 void destroy_shape(Shape* shape) {
     if (shape != NULL) {
+        erase(shape);  // Clean up visual before freeing
+
         if (shape->shape_data != NULL) {
             free(shape->shape_data);
         }
