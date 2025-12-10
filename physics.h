@@ -1,8 +1,8 @@
 /*============================================================================
  * physics.h - Created by Wes Orr (11/29/25)
  *============================================================================
- * Physics simulation layer for SH1106 graphics library
- * 
+ * Physics simulation layer for ST7789 graphics library
+ *
  * Provides object-oriented physics interface with collision detection and
  * customizable collision response via callbacks.
  *
@@ -13,7 +13,7 @@
  *         ↓
  *     shapes.c (visual representation)
  *         ↓
- *     sh1106_graphics.c (display primitives)
+ *     st7789_graphics.c (display primitives)
  *
  * USAGE:
  *     // Define collision behavior

@@ -6,11 +6,10 @@
  * Ported to ST7789: 12/9/2025
  */
 #include <xc.h>
-#include "st7789_driver.h"
+#include "st7789_graphics.h"
 #include "game_controller.h"
 
-// Initialize SPI (from sh1106_graphics.c)
-extern void initSPI(void);
+// SPI initialization is now in st7789_graphics.h
 
 int main(void) {
     // Initialize SPI peripheral

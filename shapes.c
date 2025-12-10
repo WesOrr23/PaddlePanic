@@ -13,7 +13,7 @@
  *==========================================================================*/
 
 #include "shapes.h"
-#include "st7789_driver.h"
+#include "st7789_graphics.h"
 #include <stdlib.h>
 #include <stddef.h>
 
@@ -267,4 +267,80 @@ void set_rectangle_anchor(Shape* shape, RectangleAnchor new_anchor) {
         RectangleData* data = (RectangleData*)shape->shape_data;
         data->anchor = new_anchor;
     }
+}
+
+int16_t get_rectangle_width(Shape* shape) {
+    if (shape != NULL && shape->type == SHAPE_RECTANGLE && shape->shape_data != NULL) {
+        RectangleData* data = (RectangleData*)shape->shape_data;
+        return data->width;
+    }
+    return 0;
+}
+
+int16_t get_rectangle_height(Shape* shape) {
+    if (shape != NULL && shape->type == SHAPE_RECTANGLE && shape->shape_data != NULL) {
+        RectangleData* data = (RectangleData*)shape->shape_data;
+        return data->height;
+    }
+    return 0;
+}
+
+RectangleAnchor get_rectangle_anchor(Shape* shape) {
+    if (shape != NULL && shape->type == SHAPE_RECTANGLE && shape->shape_data != NULL) {
+        RectangleData* data = (RectangleData*)shape->shape_data;
+        return data->anchor;
+    }
+    return ANCHOR_CENTER;  // Safe default
+}
+
+/*============================================================================
+ * OPTIMIZED STRIP RENDERING (for differential rendering)
+ *==========================================================================*/
+
+void draw_rectangle_vertical_strip(Shape* shape, int16_t strip_x, int16_t strip_width, uint8_t color) {
+    if (shape == NULL || shape->type != SHAPE_RECTANGLE || shape->shape_data == NULL) return;
+    if (strip_width <= 0) return;
+
+    RectangleData* data = (RectangleData*)shape->shape_data;
+
+    // Calculate strip bounds based on rectangle anchor
+    Point tl, br;
+    calculate_rect_corners(shape->origin, data->width, data->height, data->anchor, &tl, &br);
+
+    int16_t strip_height = br.y - tl.y;
+    if (strip_height <= 0) return;
+
+    // Draw the strip using ST7789 primitives
+    ST7789_Color st_color = st7789_grayscale(color);
+    st7789_setAddrWindow(strip_x, tl.y, strip_width, strip_height);
+
+    st7789_beginData();
+    for (int32_t i = 0; i < (int32_t)strip_width * strip_height; i++) {
+        st7789_write16(st_color);
+    }
+    st7789_endData();
+}
+
+void draw_rectangle_horizontal_strip(Shape* shape, int16_t strip_y, int16_t strip_height, uint8_t color) {
+    if (shape == NULL || shape->type != SHAPE_RECTANGLE || shape->shape_data == NULL) return;
+    if (strip_height <= 0) return;
+
+    RectangleData* data = (RectangleData*)shape->shape_data;
+
+    // Calculate strip bounds based on rectangle anchor
+    Point tl, br;
+    calculate_rect_corners(shape->origin, data->width, data->height, data->anchor, &tl, &br);
+
+    int16_t strip_width = br.x - tl.x;
+    if (strip_width <= 0) return;
+
+    // Draw the strip using ST7789 primitives
+    ST7789_Color st_color = st7789_grayscale(color);
+    st7789_setAddrWindow(tl.x, strip_y, strip_width, strip_height);
+
+    st7789_beginData();
+    for (int32_t i = 0; i < (int32_t)strip_width * strip_height; i++) {
+        st7789_write16(st_color);
+    }
+    st7789_endData();
 }

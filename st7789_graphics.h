@@ -1,12 +1,12 @@
 /*============================================================================
- * st7789_driver.h - Created by Wes Orr (12/8/25)
+ * st7789_graphics.h - Created by Wes Orr (12/8/25)
  *============================================================================
  * Minimal ST7789 240x240 RGB display driver
  * Based on Adafruit implementation, adapted for ATtiny1627
  *==========================================================================*/
 
-#ifndef ST7789_DRIVER_H
-#define ST7789_DRIVER_H
+#ifndef ST7789_GRAPHICS_H
+#define ST7789_GRAPHICS_H
 
 #include <stdint.h>
 
@@ -52,8 +52,14 @@ ST7789_Color st7789_color565(uint8_t r, uint8_t g, uint8_t b);
  *==========================================================================*/
 
 /**
+ * Initialize SPI hardware peripheral
+ * Must be called before st7789_init()
+ */
+void initSPI(void);
+
+/**
  * Initialize ST7789 display
- * Must be called before any other display functions
+ * Must be called after initSPI() and before any other display functions
  */
 void st7789_init(void);
 
@@ -113,4 +119,4 @@ void st7789_endData(void);
  */
 void st7789_write16(uint16_t data);
 
-#endif // ST7789_DRIVER_H
+#endif // ST7789_GRAPHICS_H

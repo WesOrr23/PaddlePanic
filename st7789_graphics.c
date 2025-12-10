@@ -1,5 +1,5 @@
 /*============================================================================
- * st7789_driver.c - Created by Wes Orr (12/8/25)
+ * st7789_graphics.c - Created by Wes Orr (12/8/25)
  *============================================================================
  * Minimal ST7789 240x240 RGB display driver implementation
  * Based on Adafruit ST7789 library, adapted for ATtiny1627
@@ -25,7 +25,7 @@
 #define F_CPU 3333333UL
 #endif
 
-#include "st7789_driver.h"
+#include "st7789_graphics.h"
 #include <xc.h>
 #include <util/delay.h>
 
@@ -165,6 +165,26 @@ ST7789_Color st7789_grayscale(uint8_t gray) {
 ST7789_Color st7789_color565(uint8_t r, uint8_t g, uint8_t b) {
     // Convert 8-bit RGB (0-255) to RGB565 format
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
+/*============================================================================
+ * SPI INITIALIZATION
+ *==========================================================================*/
+
+/**
+ * Initialize SPI hardware peripheral
+ * Must be called before st7789_init()
+ */
+void initSPI(void) {
+    PORTMUX.SPIROUTEA |= PORTMUX_SPI0_ALT1_gc;  // Route SPI0 to alternate pin locations
+
+    PORTC.DIR |= PIN0_bm | PIN2_bm | PIN3_bm;  // Set as outputs: PC0=SCLK, PC2=MOSI, PC3=SS
+
+    SPI0.CTRLA |= SPI_MASTER_bm | SPI_CLK2X_bm | SPI_PRESC_DIV16_gc;  // Master mode, double speed, /16 prescaler
+    SPI0.CTRLB |= SPI_MODE_3_gc;  // CPOL=1, CPHA=1 (idle high, sample on rising edge)
+    SPI0.CTRLA |= SPI_ENABLE_bm;  // Enable SPI peripheral
+
+    PORTC.OUTSET = PIN3_bm;  // Deassert CS (active low, so idle high)
 }
 
 /*============================================================================

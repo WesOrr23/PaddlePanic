@@ -209,4 +209,45 @@ void set_rectangle_dimensions(Shape* shape, int16_t new_width, int16_t new_heigh
  */
 void set_rectangle_anchor(Shape* shape, RectangleAnchor new_anchor);
 
+/**
+ * Get a rectangle's width
+ * @param shape Pointer to rectangle shape
+ * @return Current width, or 0 if not a rectangle
+ */
+int16_t get_rectangle_width(Shape* shape);
+
+/**
+ * Get a rectangle's height
+ * @param shape Pointer to rectangle shape
+ * @return Current height, or 0 if not a rectangle
+ */
+int16_t get_rectangle_height(Shape* shape);
+
+/**
+ * Get a rectangle's anchor
+ * @param shape Pointer to rectangle shape
+ * @return Current anchor
+ */
+RectangleAnchor get_rectangle_anchor(Shape* shape);
+
+/**
+ * Draw a vertical strip of a rectangle at specified X position
+ * Used for optimized horizontal paddle movement (erase/draw edge strips)
+ * @param shape Pointer to rectangle shape
+ * @param strip_x Left edge X coordinate of strip (absolute screen coordinate)
+ * @param strip_width Width of strip in pixels
+ * @param color Grayscale color (0=erase, 255=white, etc.)
+ */
+void draw_rectangle_vertical_strip(Shape* shape, int16_t strip_x, int16_t strip_width, uint8_t color);
+
+/**
+ * Draw a horizontal strip of a rectangle at specified Y position
+ * Used for optimized vertical paddle movement (erase/draw edge strips)
+ * @param shape Pointer to rectangle shape
+ * @param strip_y Top edge Y coordinate of strip (absolute screen coordinate)
+ * @param strip_height Height of strip in pixels
+ * @param color Grayscale color (0=erase, 255=white, etc.)
+ */
+void draw_rectangle_horizontal_strip(Shape* shape, int16_t strip_y, int16_t strip_height, uint8_t color);
+
 #endif // SHAPES_H
