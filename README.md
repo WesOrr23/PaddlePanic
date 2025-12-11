@@ -34,15 +34,15 @@ PaddlePanic is an embedded game built for the ATtiny1627 microcontroller with an
 
 | Function          | Pin   | Notes                           |
 |-------------------|-------|---------------------------------|
-| Display MOSI      | PA1   | SPI data to display             |
-| Display SCK       | PA3   | SPI clock                       |
-| Display CS        | PA5   | Chip select                     |
-| Display DC        | PA6   | Data/Command select             |
-| Display RES       | PA7   | Reset line                      |
-| Joystick X        | PD1   | ADC input (12-bit)              |
-| Joystick Y        | PD2   | ADC input (12-bit)              |
-| Joystick Button   | PD3   | Speed boost                     |
-| Primary Button    | PA2   | Start/Pause/Unpause             |
+| Display CLK       | PC0   | SPI clock                       |
+| Display MOSI      | PC2   | SPI data to display             |
+| Display CS        | PC3   | Chip select (active-low)        |
+| Display DC        | PB1   | Data/Command select             |
+| Display RES       | PB0   | Reset line                      |
+| Joystick X        | PA1   | ADC channel 1 (12-bit)          |
+| Joystick Y        | PA2   | ADC channel 2 (12-bit)          |
+| Joystick Button   | PC5   | Speed boost (active-low)        |
+| Primary Button    | PC4   | Start/Pause/Unpause (active-low)|
 
 ## ✨ Features
 
@@ -290,8 +290,9 @@ All game constants are defined in `game_controller.h`:
 
 ### Performance Notes
 
-- **Frame Rate**: ~12 fps (depends on SPI speed)
-- **Display Update**: ~80ms (SPI communication bottleneck)
+- **Frame Rate**: ~12 fps (SPI communication bottleneck)
+- **Display Update**: ~80ms per frame
+- **SPI Clock**: 1.67 MHz maximum (ATtiny1627 peripheral limitation)
 - **Physics Update**: <1ms (computational time)
 - **Input Polling**: ~0.1ms (ADC read time)
 
@@ -300,6 +301,10 @@ All game constants are defined in `game_controller.h`:
 - **Flash**: ~8KB (code + constants)
 - **SRAM**: ~1KB (game objects + stack)
 - **Display Buffer**: 1KB (128×64 / 8 bits)
+
+### Hardware Limitations
+
+This project uses an SH1106 monochrome OLED display due to ATtiny1627 constraints. An attempt was made to migrate to an ST7789 color TFT display, but the ATtiny1627's limited SPI throughput (max 1.67 MHz) and 2KB SRAM proved insufficient for acceptable frame rates with color graphics. For color display applications, consider upgrading to a more capable microcontroller (e.g., ESP32) with DMA-enabled SPI and larger memory.
 
 ## 📝 License
 
