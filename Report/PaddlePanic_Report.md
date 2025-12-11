@@ -20,7 +20,7 @@ The physics engine uses position-based updates with integer velocity vectors. Co
 
 The graphics system maintains a 1KB framebuffer and provides pixel, line (Bresenham's algorithm), and bitmap primitives. Text rendering uses custom 3×5 pixel bitmap fonts with integer scaling. The display refreshes via page-addressed SPI transfers, achieving approximately 12 fps limited by SPI communication overhead. The main loop polls input, updates physics, clears the framebuffer, renders state-specific screens, and transmits to hardware.
 
-The full code is available at [GitHub Repository Link]. See below for graphical flow diagram. A textual version that is more detailed is included
+The full code is available at https://github.com/WesOrr23/PaddlePanic.git. See below for graphical flow diagram. A textual version that is more detailed is included
 
 ![Flow Diagram](Paddle%20Panic%20Flow%20Diagram.png)
 
